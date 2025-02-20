@@ -4,7 +4,7 @@ I discovered this engaging math game online and found it to be an excellent educ
 
 ## Project Creation
 
-This project was generated in one night using [Cursor](https://cursor.sh/), an AI-powered code editor. The rapid development process allowed me to quickly create an educational tool that my son could use to practice math skills.
+This project including this readme file was generated in one night using [Cursor](https://cursor.sh/), an AI-powered code editor. The rapid development process allowed me to quickly create an educational tool that my son could use to practice math skills.
 
 ## Why This Game is Great for Kids
 
