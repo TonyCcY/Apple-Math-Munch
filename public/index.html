@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#4CAF50">
+    
+    <title>Apple Math Munch</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="images/icon-192.png">
+</head>
+<body>
+    <div id="game-container">
+        <!-- Start Page -->
+        <div id="start-page" class="page active">
+            <h1>Apple Math Munch</h1>
+            <p>Select apples that sum to 10 to score points!</p>
+            <div class="start-button-container">
+                <button id="startButton" class="big-button">Start Game</button>
+            </div>
+            <div class="instructions">
+                <h2>How to Play:</h2>
+                <ul>
+                    <li>Draw rectangles to select apples</li>
+                    <li>Selected apples must sum to 10</li>
+                    <li>Each match gives you 1 point</li>
+                    <li>You have 60 seconds</li>
+                    <li>Use the tip button for help</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Game Page -->
+        <div id="game-page" class="page">
+            <div id="game-info">
+                <span class="score-container">
+                    Score: <span class="score-text"><span id="score">0</span></span>
+                </span>
+                <div class="timer-container">
+                    <div class="timer-progress"></div>
+                    <div class="timer-text"><span id="timer">00:00</span></div>
+                </div>
+                <div id="debug-controls" style="display: none;">
+                    <button id="tipButton">Show Tip (∞)</button>
+                    <button id="autoTipButton">Auto Solve (∞)</button>
+                    <button id="continuousAutoButton">Auto Run</button>
+                </div>
+            </div>
+            <div class="canvas-container">
+                <canvas id="gameCanvas"></canvas>
+            </div>
+        </div>
+
+        <!-- Game Over Page -->
+        <div id="gameover-page" class="page">
+            <h1>Game Over!</h1>
+            <div class="final-score">
+                <h2>Final Score: <span id="final-score">0</span></h2>
+                <p>High Score: <span id="high-score">0</span></p>
+            </div>
+            <button id="playAgainButton" class="big-button">Play Again</button>
+        </div>
+    </div>
+    
+    <!-- Add this right before the closing </div> of game-container -->
+    <div id="popup" class="popup">
+        <div class="popup-content">
+            <p id="popup-message"></p>
+            <button id="popup-close" class="popup-button">OK</button>
+        </div>
+    </div>
+    
+    <script src="js/game.js"></script>
+</body>
+</html> 

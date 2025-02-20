@@ -1,0 +1,12 @@
+{
+    "name": "web-game-server",
+    "version": "1.0.0",
+    "description": "A web game server using Express",
+    "main": "src/server.js",
+    "scripts": {
+        "start": "node src/server.js"
+    },
+    "dependencies": {
+        "express": "^4.17.1"
+    }
+} 

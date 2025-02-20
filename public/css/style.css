@@ -1,0 +1,804 @@
+* {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #f0f0f0;
+    font-family: Arial, sans-serif;
+    overscroll-behavior: none; /* Prevent pull-to-refresh */
+}
+
+#game-container {
+    position: relative;
+    text-align: center;
+    width: 100%;
+    max-width: 1200px;
+    padding: 10px;
+    box-sizing: border-box;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Prevent multiple pages from showing */
+}
+
+#game-info {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Two equal columns */
+    gap: 6px;
+    padding: 8px;
+    background-color: rgba(255, 255, 255, 0.95);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin: 4px auto;
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 14px;
+    align-items: center;
+}
+
+#gameCanvas {
+    position: relative;
+    max-width: 100%;
+    max-height: 70vh;
+    width: auto;
+    height: auto;
+    touch-action: none;
+    display: block;
+}
+
+.page {
+    display: none;
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    left: 0;
+    top: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.page.active {
+    display: flex;
+    flex-direction: column;
+    opacity: 1;
+    pointer-events: auto;
+    position: relative;
+}
+
+.instructions {
+    text-align: left;
+    margin: 30px auto;
+    max-width: 500px;
+    padding: 20px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.instructions ul {
+    line-height: 1.6;
+}
+
+.big-button {
+    font-size: 24px;
+    padding: 15px 40px;
+    margin: 20px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.big-button:hover {
+    background-color: #45a049;
+}
+
+.final-score {
+    font-size: 24px;
+    margin: 30px 0;
+}
+
+#tipButton, #autoTipButton, #continuousAutoButton {
+    padding: 6px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+    min-height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#tipButton {
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#tipButton:hover {
+    background-color: #1976D2;
+}
+
+h1 {
+    color: #333;
+    margin-bottom: 30px;
+}
+
+#game-page {
+    flex: 1;
+    display: none; /* Hide by default */
+    flex-direction: column;
+    min-height: 100%;
+    width: 100%;
+}
+
+#game-page.active {
+    display: flex; /* Show when active */
+}
+
+.popup {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+}
+
+.popup.active {
+    display: flex;
+}
+
+.popup-content {
+    background-color: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    text-align: center;
+    max-width: 80%;
+    min-width: 300px;
+}
+
+.popup-button {
+    margin-top: 15px;
+    padding: 8px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+.popup-button:hover {
+    background-color: #45a049;
+}
+
+#popup-message {
+    font-size: 18px;
+    margin: 10px 0;
+}
+
+#autoTipButton {
+    background-color: #FF9800;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    margin-left: 10px;
+}
+
+#autoTipButton:hover {
+    background-color: #F57C00;
+}
+
+#continuousAutoButton {
+    background-color: #9C27B0;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    margin-left: 10px;
+}
+
+#continuousAutoButton:hover {
+    background-color: #7B1FA2;
+}
+
+/* Media queries for different screen sizes */
+@media (max-width: 768px) {
+    #game-info {
+        grid-template-columns: repeat(2, 1fr);
+        padding: 10px;
+    }
+    
+    .timer-container {
+        grid-column: span 2;
+        justify-self: center;
+        width: clamp(200px, 80%, 300px);
+    }
+    
+    h1 {
+        font-size: clamp(20px, 5vw, 24px);
+        margin: 10px 0;
+    }
+}
+
+@media (max-width: 480px) {
+    #game-info {
+        grid-template-columns: 1fr 1fr; /* Two columns for score and debug */
+        gap: 4px;
+        padding: 4px;
+    }
+    
+    .score-container {
+        grid-column: 1;
+    }
+    
+    .timer-container {
+        grid-column: 1 / -1;
+        height: 15px; /* Even smaller on mobile */
+        margin-top: 4px;
+    }
+    
+    .timer-text {
+        font-size: 24px;
+    }
+    
+    #tipButton, #autoTipButton, #continuousAutoButton {
+        grid-column: span 2;
+        padding: 5px;
+        margin: 0;
+        font-size: 12px;
+        min-height: 25px;
+    }
+    
+    h1 {
+        font-size: 18px;
+        margin: 4px 0;
+    }
+}
+
+/* iPhone specific adjustments */
+@media screen and (max-width: 390px) {
+    #game-info {
+        gap: 4px;
+        padding: 4px;
+    }
+    
+    .timer-container {
+        height: 25px;
+    }
+    
+    .timer-text {
+        font-size: 14px;
+    }
+    
+    #tipButton, #autoTipButton, #continuousAutoButton {
+        padding: 6px;
+        font-size: 13px;
+    }
+    
+    .canvas-container {
+        padding: 2px;
+    }
+}
+
+/* Handle iPhone in landscape mode */
+@media screen and (orientation: landscape) and (max-height: 480px) {
+    #game-container {
+        padding: 5px;
+    }
+    
+    #game-info {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 3px;
+        padding: 3px;
+    }
+    
+    .score-container {
+        grid-column: 1;
+    }
+    
+    .timer-container {
+        grid-column: 2;
+    }
+    
+    #tipButton {
+        grid-column: 3;
+    }
+    
+    #autoTipButton {
+        grid-column: 4;
+    }
+    
+    #continuousAutoButton {
+        grid-column: 5;
+    }
+    
+    
+    .canvas-container {
+        height: calc(100vh - 60px);
+    }
+    
+    .timer-container {
+        height: 12px; /* Smallest in landscape */
+        margin-top: 2px;
+    }
+}
+
+/* Safe area insets for iPhone X and newer */
+@supports (padding: max(0px)) {
+    #game-container {
+        padding-left: max(10px, env(safe-area-inset-left));
+        padding-right: max(10px, env(safe-area-inset-right));
+        padding-top: max(10px, env(safe-area-inset-top));
+        padding-bottom: max(10px, env(safe-area-inset-bottom));
+    }
+}
+
+/* Update timer progress bar styles */
+.timer-container {
+    width: 100%; /* Full width */
+    height: 20px; /* Smaller height */
+    min-width: auto; /* Remove min-width constraint */
+    background-color: #eee;
+    border-radius: 10px; /* Slightly smaller radius */
+    overflow: hidden;
+    position: relative;
+    margin: 0;
+    border: 2px solid #ccc;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    grid-column: 1 / -1; /* Span all columns */
+    order: 1; /* Place at bottom */
+}
+
+.timer-progress {
+    width: 100%;
+    height: 100%;
+    background-color: #4CAF50;
+    transition: width 1s linear;
+    background-image: linear-gradient(
+        45deg,
+        rgba(255,255,255,0.15) 25%,
+        transparent 25%,
+        transparent 50%,
+        rgba(255,255,255,0.15) 50%,
+        rgba(255,255,255,0.15) 75%,
+        transparent 75%
+    );
+    background-size: 20px 20px; /* Add subtle pattern */
+}
+
+.timer-text {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    text-align: center;
+    color: white;
+    font-weight: bold;
+    text-shadow: 
+        -1px -1px 0 #000,
+        1px -1px 0 #000,
+        -1px 1px 0 #000,
+        1px 1px 0 #000;
+    z-index: 1;
+    font-size: 24px;
+}
+
+/* Adjust font size for mobile */
+@media (max-width: 480px) {
+    .timer-text {
+        font-size: 20px;
+    }
+}
+
+/* Adjust for landscape */
+@media screen and (orientation: landscape) and (max-height: 480px) {
+    .timer-text {
+        font-size: 18px;
+    }
+}
+
+/* Canvas container for better scaling */
+.canvas-container {
+    flex: 1;
+    position: relative;
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 5px;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Add these styles for score animation */
+.score-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 30px;
+    grid-column: 1 / -1; /* Span full width */
+    text-align: center;
+    order: 0; /* Place at top */
+}
+
+.score-text {
+    display: inline-block;
+}
+
+.score-popup {
+    position: absolute;
+    left: 50%;
+    color: #4CAF50;
+    font-weight: bold;
+    pointer-events: none;
+    animation: scorePopup 0.8s ease-out forwards;
+    opacity: 0;
+}
+
+@keyframes scorePopup {
+    0% {
+        transform: translate(-50%, 0);
+        opacity: 0;
+    }
+    20% {
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -20px);
+        opacity: 0;
+    }
+}
+
+/* Update the score span style */
+#score {
+    display: inline-block;
+    transition: transform 0.2s ease;
+}
+
+#score.pulse {
+    animation: scorePulse 0.3s ease;
+}
+
+@keyframes scorePulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.2);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Add orientation-specific styles */
+@media screen and (orientation: landscape) {
+    .canvas-container {
+        height: 85vh;
+        aspect-ratio: auto;
+    }
+    
+    #game-info {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+}
+
+@media screen and (orientation: portrait) {
+    .canvas-container {
+        height: auto;
+    }
+}
+
+/* Update start and gameover pages */
+#start-page, #gameover-page {
+    justify-content: center;
+    align-items: center;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+/* Update game info alignment */
+#game-info {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Two equal columns */
+    gap: 6px;
+    padding: 8px;
+    background-color: rgba(255, 255, 255, 0.95);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin: 4px auto;
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 14px;
+    align-items: center;
+}
+
+/* Center align score container */
+.score-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 30px;
+    grid-column: 1 / -1; /* Span full width */
+    text-align: center;
+    order: 0; /* Place at top */
+}
+
+/* Update button alignment */
+#tipButton, #autoTipButton, #continuousAutoButton {
+    padding: 6px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+    min-height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Ensure consistent height for all elements */
+.timer-container {
+    height: 30px;
+    display: flex;
+    align-items: center;
+    order: 1; /* Place below score */
+}
+
+/* Media query adjustments */
+@media (max-width: 480px) {
+    #game-info > * {
+        min-height: 25px;
+    }
+    
+    .score-container {
+        height: 25px;
+        font-size: 14px;
+    }
+    
+    .timer-container {
+        height: 25px;
+    }
+    
+    #tipButton, #autoTipButton, #continuousAutoButton {
+        min-height: 25px;
+    }
+}
+
+#debug-controls {
+    display: none; /* Hidden by default */
+    gap: 6px;
+    grid-column: span 2;
+}
+
+@media screen and (orientation: landscape) and (max-height: 480px) {
+    #debug-controls {
+        display: none; /* Keep hidden in landscape */
+        grid-column: span 3;
+    }
+}
+
+/* Update media queries for debug controls */
+@media (max-width: 480px) {
+    #debug-controls {
+        grid-column: span 2;
+        display: none; /* Keep hidden on mobile */
+        flex-direction: column;
+        gap: 4px;
+    }
+}
+
+/* Update start page layout */
+#start-page {
+    padding: 10px;
+    gap: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+#start-page h1 {
+    margin: 5px 0;
+}
+
+#start-page p {
+    margin: 5px 0;
+}
+
+#start-page .big-button {
+    margin: 10px;
+    padding: 10px 30px;
+    z-index: 1; /* Ensure button stays above other elements */
+}
+
+.instructions {
+    margin: 10px auto;
+    padding: 10px;
+    max-height: 60vh;
+    overflow-y: auto;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.instructions h2 {
+    margin: 5px 0;
+    font-size: 18px;
+}
+
+.instructions ul {
+    margin: 5px 0;
+    padding-left: 20px;
+}
+
+.instructions li {
+    margin: 3px 0;
+}
+
+/* Landscape mode adjustments */
+@media screen and (orientation: landscape) and (max-height: 480px) {
+    #start-page {
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 5px;
+        gap: 10px;
+        height: 100%;
+    }
+    
+    /* Left side: Start button */
+    .start-button-container {
+        flex: 0 0 40%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 10px;
+    }
+    
+    #start-page .big-button {
+        position: static; /* Remove absolute positioning */
+        transform: none;
+        margin: 0;
+        padding: 8px 20px;
+        font-size: 18px;
+    }
+    
+    /* Right side: Instructions */
+    .instructions {
+        flex: 0 0 60%;
+        margin: 5px;
+        padding: 8px;
+        max-height: calc(100vh - 20px);
+        opacity: 1;
+    }
+    
+    .instructions h2 {
+        font-size: 16px;
+        margin: 3px 0;
+    }
+    
+    .instructions ul {
+        margin: 3px 0;
+        font-size: 14px;
+    }
+    
+    .instructions li {
+        margin: 2px 0;
+        line-height: 1.3;
+    }
+}
+
+/* Update score container styles */
+.score-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 30px;
+    grid-column: 1 / -1; /* Span full width */
+    text-align: center;
+    order: 0; /* Place at top */
+}
+
+/* Update timer container order */
+.timer-container {
+    order: 1; /* Place below score */
+}
+
+/* Media query adjustments */
+@media (max-width: 480px) {
+    .score-container {
+        height: 25px;
+        font-size: 14px;
+    }
+}
+
+@media screen and (orientation: landscape) and (max-height: 480px) {
+    #game-info {
+        grid-template-columns: repeat(6, 1fr);
+    }
+    
+    .score-container {
+        grid-column: 1 / -1;
+        margin-bottom: 2px;
+    }
+}
+
+/* Add countdown styles */
+.countdown-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.countdown-text {
+    font-size: 120px;
+    color: white;
+    font-weight: bold;
+    animation: countdownPulse 1s infinite;
+}
+
+@keyframes countdownPulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Adjust countdown size for mobile */
+@media (max-width: 480px) {
+    .countdown-text {
+        font-size: 80px;
+    }
+} 
