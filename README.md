@@ -2,6 +2,10 @@
 
 I discovered this engaging math game online and found it to be an excellent educational tool for my 6-year-old son. The game provides a fun way to practice basic addition while developing quick thinking skills. By selecting apples that sum to 10, children can improve their mental math abilities through play.
 
+## Try It Now!
+
+Play the game live at: [@apple-math-munch](https://apple-math-munch.vercel.app/)
+
 ## Project Creation
 
 This project including this readme file was generated in one night using [Cursor](https://cursor.sh/), an AI-powered code editor. The rapid development process allowed me to quickly create an educational tool that my son could use to practice math skills.
