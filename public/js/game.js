@@ -482,6 +482,13 @@ class AppleGame {
         
         // Show the requested page
         document.getElementById(pageId).classList.add('active');
+        
+        // Call handleResize when game page is shown
+        if (pageId === 'game-page') {
+            setTimeout(() => {
+                this.handleResize();
+            }, 100); // Small delay to ensure page transition is complete
+        }
     }
     
     resetGame() {
