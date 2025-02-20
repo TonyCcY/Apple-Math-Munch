@@ -65,23 +65,23 @@ class AppleGame {
         this.isAutoSolving = false;
         this.autoSolveInterval = null;
         
-        // Load apple image
-        this.appleImage = new Image();
-        this.appleImageLoaded = false; // Add loading flag
+        // Add fruit type
+        this.fruitType = localStorage.getItem('fruitType') || 'apple';
         
-        this.appleImage.onload = () => {
-            this.appleImageLoaded = true;
-            this.draw(); // Draw once image is loaded
+        // Load fruit images
+        this.fruitImages = {
+            apple: 'images/apple.svg',
+            orange: 'images/orange.svg',
+            pear: 'images/pear.svg',
+            cherry: 'images/cherry.svg',
+            grape: 'images/grape.svg'
         };
         
-        this.appleImage.onerror = () => {
-            console.error('Failed to load apple image');
-            // Fallback to a simple circle if image fails to load
-            this.appleImageLoaded = false;
-            this.draw();
-        };
+        // Initialize fruit selector
+        this.initFruitSelector();
         
-        this.appleImage.src = 'images/apple.svg';
+        // Load current fruit image
+        this.loadFruitImage(this.fruitType);
         
         // Add touch event handling
         this.bindTouchEvents();
@@ -94,6 +94,8 @@ class AppleGame {
         this.timerProgress = document.querySelector('.timer-progress');
         this.initialTime = 60 * 3; // 3 minutes
         this.timeLeft = this.initialTime;
+        this.lastUpdate = 0;
+        this.msLeft = 0;
         
         // Handle orientation changes
         window.addEventListener('orientationchange', () => {
@@ -120,6 +122,28 @@ class AppleGame {
         
         // Add clear high score button handler
         document.getElementById('clearHighScoreButton').addEventListener('click', () => this.clearHighScore());
+        
+        // Add fruit colors
+        this.fruitColors = {
+            apple: '#ff0000',
+            orange: '#FFA500',
+            pear: '#D4E157',
+            cherry: '#D32F2F',
+            grape: '#9C27B0'
+        };
+        
+        // Initialize theme
+        this.initTheme();
+        
+        // Add home button handler
+        document.getElementById('homeButton').addEventListener('click', () => {
+            this.showPage('start-page');
+            // Reset game state
+            this.score = 0;
+            this.timeLeft = this.initialTime;
+            this.grid = this.createGrid();
+            document.getElementById('score').textContent = '0';
+        });
     }
     
     createGrid() {
@@ -347,6 +371,7 @@ class AppleGame {
     }
     
     draw() {
+        // Clear only the canvas area
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
         // Draw grid
@@ -361,61 +386,15 @@ class AppleGame {
             }
         }
         
-        // Draw falling apples
-        for (const apple of this.fallingApples) {
-            this.drawApple(
-                apple.x,
-                apple.currentY,
-                apple.value,
-                false,
-                false
-            );
-        }
-        
-        // Draw active animations
-        for (const anim of this.animations) {
-            const progress = (performance.now() - anim.startTime) / anim.duration;
-            let scale, alpha;
-            
-            if (anim.type === 'pop-out') {
-                // Pop out: start at normal size, scale up and fade out
-                scale = 1 + progress;
-                alpha = 1 - progress;
-            } else if (anim.type === 'pop-in') {
-                // Pop in: start small and scale up to normal size
-                scale = progress;
-                alpha = progress;
-            } else {
-                // Original pop animation for destroyed apples
-                scale = 1 + Math.sin(progress * Math.PI) * 0.5;
-                alpha = 1 - progress;
-            }
-            
-            this.drawApple(
-                anim.x,
-                anim.y,
-                anim.value,
-                false,
-                false,
-                scale,
-                alpha
-            );
-        }
-        
         // Draw particles
-        for (const particle of this.particles) {
-            const progress = (performance.now() - particle.startTime) / particle.duration;
+        this.particles.forEach(particle => {
             this.ctx.beginPath();
-            this.ctx.arc(
-                particle.x,
-                particle.y,
-                particle.size,
-                0,
-                Math.PI * 2
-            );
-            this.ctx.fillStyle = `rgba(255, 0, 0, ${1 - progress})`;
+            this.ctx.fillStyle = particle.color;
+            this.ctx.globalAlpha = 1; // Ensure full opacity for particles
+            this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
             this.ctx.fill();
-        }
+            this.ctx.globalAlpha = 1; // Reset opacity
+        });
         
         // Draw selection rectangle if currently drawing
         if (this.isDrawing) {
@@ -436,53 +415,41 @@ class AppleGame {
     drawApple(x, y, value, selected, hint, scale = 1, alpha = 1) {
         const centerX = x * this.cellSize + this.cellSize/2;
         const centerY = y * this.cellSize + this.cellSize/2;
-        const size = this.cellSize - 4;
         
         this.ctx.save();
+        this.ctx.translate(centerX, centerY);
+        this.ctx.scale(scale, scale);
+        this.ctx.globalAlpha = alpha;
         
-        // Draw apple image with modified alpha based on state
-        const drawSize = size * scale;
-        if (selected) {
-            this.ctx.globalAlpha = alpha * 0.7;
-            this.ctx.filter = 'brightness(1.3)';
-        } else if (hint) {
-            this.ctx.globalAlpha = alpha;
-            this.ctx.filter = 'hue-rotate(120deg)';
-        } else {
-            this.ctx.globalAlpha = alpha;
-        }
-        
+        // Draw apple image or fallback circle
         if (this.appleImageLoaded) {
-            // Draw image if loaded
+            const size = this.cellSize * 0.8; // Slightly smaller than cell
             this.ctx.drawImage(
                 this.appleImage,
-                centerX - drawSize/2,
-                centerY - drawSize/2,
-                drawSize,
-                drawSize
+                -size/2,
+                -size/2,
+                size,
+                size
             );
         } else {
-            // Fallback to circle if image not loaded
             this.ctx.beginPath();
-            this.ctx.arc(centerX, centerY, drawSize/2, 0, Math.PI * 2);
-            this.ctx.fillStyle = '#ff0000';
+            this.ctx.arc(0, 0, this.cellSize * 0.4, 0, Math.PI * 2);
+            this.ctx.fillStyle = selected ? '#ff6666' : (hint ? '#ffff00' : '#ff0000');
             this.ctx.fill();
         }
         
-        // Draw number
-        if (scale > 0.3) {
-            this.ctx.filter = 'none';
-            this.ctx.fillStyle = '#ffffff';
-            const fontSize = Math.min(this.cellSize * 0.5, 36) * scale;
-            this.ctx.font = `bold ${fontSize}px Arial`;
-            this.ctx.textAlign = 'center';
-            this.ctx.textBaseline = 'middle';
-            this.ctx.fillText(
-                value,
-                centerX,
-                centerY + fontSize * 0.05
-            );
-        }
+        // Draw number with drop shadow
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.font = `bold ${this.cellSize * 0.4}px Arial`;
+        
+        // Draw shadow
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        this.ctx.fillText(value, 2, 2); // Offset for shadow
+        
+        // Draw main text
+        this.ctx.fillStyle = selected ? '#ffffff' : (hint ? '#000000' : '#ffffff');
+        this.ctx.fillText(value, 0, 0);
         
         this.ctx.restore();
     }
@@ -535,10 +502,10 @@ class AppleGame {
     startGame() {
         this.showPage('game-page');
         
-        // Update initial timer display
+        // Update initial timer display with padded minutes
         const minutes = Math.floor(this.timeLeft / 60);
         const seconds = this.timeLeft % 60;
-        document.getElementById('timer').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        document.getElementById('timer').textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:00`;
         
         // Reset progress bar
         this.timerProgress.style.width = '100%';
@@ -583,10 +550,19 @@ class AppleGame {
             clearInterval(this.timerInterval);
         }
         
-        // Start new timer
+        this.lastUpdate = performance.now();
+        this.msLeft = this.timeLeft * 1000;
+        
+        // Update more frequently for smooth ms display
         this.timerInterval = setInterval(() => {
+            const now = performance.now();
+            const delta = now - this.lastUpdate;
+            this.lastUpdate = now;
+            
+            this.msLeft = Math.max(0, this.msLeft - delta);
+            this.timeLeft = Math.ceil(this.msLeft / 1000);
             this.updateTimer();
-        }, 1000);
+        }, 16); // ~60fps update
     }
     
     gameOver() {
@@ -684,30 +660,38 @@ class AppleGame {
     
     startDestroyAnimation(x, y, value) {
         const startTime = performance.now();
-        const duration = 300;
+        const duration = 400;
         
-        // Create fewer particles with optimized properties
-        const numParticles = 6;
+        // Create particles
+        const numParticles = 8;
         const particles = [];
+        
+        // Get current fruit color
+        const fruitColor = this.fruitColors[this.fruitType];
+        
+        // Calculate apple center position
+        const appleCenterX = x * this.cellSize + this.cellSize/2;
+        const appleCenterY = y * this.cellSize + this.cellSize/2;
         
         for (let i = 0; i < numParticles; i++) {
             const angle = (i / numParticles) * Math.PI * 2;
+            const speed = 4;
             particles.push({
-                x: x * this.cellSize + this.cellSize/2,
-                y: y * this.cellSize + this.cellSize/2,
-                vx: Math.cos(angle) * 2, // Reduced velocity
-                vy: Math.sin(angle) * 2,
-                size: 4, // Smaller particles
+                x: appleCenterX,
+                y: appleCenterY,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - 2,
+                gravity: 0.2,
+                size: 5,
                 startTime,
-                duration: 300, // Shorter duration
-                color: '#ff0000'
+                duration,
+                color: fruitColor
             });
         }
         
-        // Add all particles at once
         this.particles.push(...particles);
         
-        // Add single animation
+        // Add animation
         this.animations.push({
             x, y, value,
             startTime,
@@ -716,7 +700,6 @@ class AppleGame {
             alpha: 1
         });
         
-        // Start animation loop if not running
         if (!this.isAnimating) {
             this.isAnimating = true;
             this.animationLoop();
@@ -729,31 +712,50 @@ class AppleGame {
         // Update animations
         this.animations = this.animations.filter(anim => {
             const progress = Math.min(1, (currentTime - anim.startTime) / anim.duration);
-            anim.scale = 1 + progress * 0.3; // Smoother scale
+            anim.scale = 1 + progress * 0.3;
             anim.alpha = 1 - progress;
             return progress < 1;
         });
         
-        // Update particles
+        // Update particles with gravity
         this.particles = this.particles.filter(particle => {
             const progress = (currentTime - particle.startTime) / particle.duration;
             if (progress >= 1) return false;
             
+            // Update velocity with gravity
+            particle.vy += particle.gravity;
+            
+            // Update position
             particle.x += particle.vx;
             particle.y += particle.vy;
+            
+            // Shrink size
             particle.size *= 0.97;
+            
+            // Add fade out effect with original color
+            const [r, g, b] = this.hexToRgb(particle.color);
+            particle.color = `rgba(${r}, ${g}, ${b}, ${1 - progress})`;
+            
             return particle.size > 0.5;
         });
         
-        // Draw frame
         this.draw();
         
-        // Continue animation if needed
         if (this.animations.length > 0 || this.particles.length > 0) {
             requestAnimationFrame(() => this.animationLoop());
         } else {
             this.isAnimating = false;
         }
+    }
+    
+    // Helper function to convert hex color to RGB
+    hexToRgb(hex) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? [
+            parseInt(result[1], 16),
+            parseInt(result[2], 16),
+            parseInt(result[3], 16)
+        ] : [255, 0, 0]; // Default to red if conversion fails
     }
     
     showPopup(message, autoDismiss = false) {
@@ -1049,19 +1051,24 @@ class AppleGame {
     handleResize() {
         // Get the container dimensions
         const container = document.querySelector('.canvas-container');
-        const containerWidth = container.clientWidth;
-        const containerHeight = container.clientHeight;
+        const containerStyle = window.getComputedStyle(container);
+        const paddingX = parseFloat(containerStyle.paddingLeft) + parseFloat(containerStyle.paddingRight);
+        const paddingY = parseFloat(containerStyle.paddingTop) + parseFloat(containerStyle.paddingBottom);
+        
+        // Get available space (excluding padding)
+        const availableWidth = container.clientWidth - paddingX;
+        const availableHeight = container.clientHeight - paddingY;
         
         // Calculate the maximum size that maintains the grid aspect ratio
         const gridAspectRatio = this.gridWidth / this.gridHeight;
-        const containerAspectRatio = containerWidth / containerHeight;
+        const containerAspectRatio = availableWidth / availableHeight;
         
         let newWidth, newHeight;
         if (containerAspectRatio > gridAspectRatio) {
-            newHeight = containerHeight;
+            newHeight = availableHeight;
             newWidth = newHeight * gridAspectRatio;
         } else {
-            newWidth = containerWidth;
+            newWidth = availableWidth;
             newHeight = newWidth / gridAspectRatio;
         }
         
@@ -1082,32 +1089,46 @@ class AppleGame {
     }
     
     updateTimer() {
-        if (this.timeLeft > 0) {
-            this.timeLeft--;
+        if (this.msLeft > 0) {
+            // Convert to mm:ss:ms format
+            const totalSeconds = Math.floor(this.msLeft / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            const ms = Math.floor((this.msLeft % 1000) / 10); // Get centiseconds (2 digits)
             
-            // Convert to mm:ss format
-            const minutes = Math.floor(this.timeLeft / 60);
-            const seconds = this.timeLeft % 60;
-            const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:${ms.toString().padStart(2, '0')}`;
             
-            document.getElementById('timer').textContent = timeString;
+            const timerElement = document.getElementById('timer');
+            const timerTextElement = document.querySelector('.timer-text');
+            timerElement.textContent = timeString;
             
             // Update progress bar
-            const progress = (this.timeLeft / this.initialTime) * 100;
+            const progress = (this.msLeft / (this.initialTime * 1000)) * 100;
             this.timerProgress.style.width = `${progress}%`;
             
-            // Change color based on time remaining
+            // Change color and add warning animation based on time remaining
             if (progress > 66) {
-                this.timerProgress.style.backgroundColor = '#4CAF50'; // Green
+                this.timerProgress.style.backgroundColor = '#4CAF50';
+                timerTextElement.classList.remove('warning');
             } else if (progress > 33) {
-                this.timerProgress.style.backgroundColor = '#FFA000'; // Orange
+                this.timerProgress.style.backgroundColor = '#FFA000';
+                timerTextElement.classList.remove('warning');
             } else {
-                this.timerProgress.style.backgroundColor = '#f44336'; // Red
+                this.timerProgress.style.backgroundColor = '#f44336';
+                timerTextElement.classList.add('warning');
+                
+                // Play warning sound at 10 seconds remaining
+                if (Math.floor(this.msLeft / 1000) === 10 && (this.msLeft % 1000) > 980) {
+                    this.audio.play('wrong');
+                }
             }
-            
-            if (this.timeLeft === 0) {
-                this.gameOver();
-            }
+        }
+        
+        // Check if time is up
+        if (this.msLeft <= 0) {
+            clearInterval(this.timerInterval);
+            this.timerInterval = null;
+            this.gameOver();
         }
     }
     
@@ -1144,6 +1165,78 @@ class AppleGame {
         // Show confirmation popup
         this.showPopup('High score cleared!', true);
     }
+    
+    initFruitSelector() {
+        const buttons = document.querySelectorAll('.fruit-button');
+        
+        // First, remove active class from all buttons
+        buttons.forEach(button => {
+            button.classList.remove('active');
+        });
+        
+        // Find and activate the current fruit button
+        const currentFruitButton = Array.from(buttons).find(button => button.dataset.fruit === this.fruitType);
+        if (currentFruitButton) {
+            currentFruitButton.classList.add('active');
+        } else {
+            // If no matching button found, default to apple
+            const appleButton = Array.from(buttons).find(button => button.dataset.fruit === 'apple');
+            if (appleButton) {
+                appleButton.classList.add('active');
+                this.fruitType = 'apple';
+                localStorage.setItem('fruitType', 'apple');
+            }
+        }
+        
+        // Add click handlers
+        buttons.forEach(button => {
+            button.addEventListener('click', () => {
+                // Remove active class from all buttons
+                buttons.forEach(b => b.classList.remove('active'));
+                // Add active class to clicked button
+                button.classList.add('active');
+                
+                // Update fruit type
+                this.fruitType = button.dataset.fruit;
+                localStorage.setItem('fruitType', this.fruitType);
+                
+                // Load new fruit image
+                this.loadFruitImage(this.fruitType);
+            });
+        });
+    }
+    
+    loadFruitImage(type) {
+        this.appleImage = new Image();
+        this.appleImageLoaded = false;
+        
+        this.appleImage.onload = () => {
+            this.appleImageLoaded = true;
+            this.draw();
+        };
+        
+        this.appleImage.onerror = () => {
+            console.error('Failed to load fruit image');
+            this.appleImageLoaded = false;
+            this.draw();
+        };
+        
+        this.appleImage.src = this.fruitImages[type];
+    }
+    
+    initTheme() {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        
+        const themeButton = document.getElementById('themeButton');
+        themeButton.addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        });
+    }
 }
 
 class AudioManager {
@@ -1163,11 +1256,6 @@ class AudioManager {
                 audio.volume = 0.5;
             });
         });
-        
-        // Add mute button to game info
-        this.addMuteButton();
-        this.isMuted = localStorage.getItem('isMuted') === 'true';
-        this.updateMuteButton();
     }
     
     createAudioPool(src, size) {
@@ -1179,7 +1267,7 @@ class AudioManager {
     }
     
     play(soundName) {
-        if (this.isMuted || !this.audioPool[soundName]) return;
+        if (!this.audioPool[soundName]) return;
         
         // Find an audio instance that's not playing
         const audioPool = this.audioPool[soundName];
@@ -1194,26 +1282,6 @@ class AudioManager {
             tempAudio.volume = 0.5;
             tempAudio.play().catch(e => console.log('Sound play prevented:', e));
         }
-    }
-    
-    addMuteButton() {
-        const muteButton = document.createElement('button');
-        muteButton.id = 'muteButton';
-        muteButton.className = 'mute-button';
-        muteButton.innerHTML = '🔊';
-        
-        muteButton.addEventListener('click', () => {
-            this.isMuted = !this.isMuted;
-            localStorage.setItem('isMuted', this.isMuted);
-            this.updateMuteButton();
-        });
-        
-        document.getElementById('game-info').appendChild(muteButton);
-    }
-    
-    updateMuteButton() {
-        const muteButton = document.getElementById('muteButton');
-        muteButton.innerHTML = this.isMuted ? '🔇' : '🔊';
     }
 }
 

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <!-- Orange body -->
+    <circle cx="50" cy="50" r="45" fill="#FFA500"/>
+    
+    <!-- Stem -->
+    <path d="M 50 5 C 50 5, 45 15, 55 15" stroke="#654321" stroke-width="3" fill="none"/>
+    <path d="M 55 15 C 55 15, 65 10, 60 20" stroke="#228B22" stroke-width="3" fill="none"/>
+    
+    <!-- Texture lines -->
+    <path d="M 50 15 Q 80 50 50 85" stroke="#FF8C00" stroke-width="2" fill="none"/>
+    <path d="M 15 50 Q 50 50 85 50" stroke="#FF8C00" stroke-width="2" fill="none"/>
+    
+    <!-- Highlight -->
+    <circle cx="35" cy="35" r="15" fill="rgba(255,255,255,0.3)"/>
+</svg> 

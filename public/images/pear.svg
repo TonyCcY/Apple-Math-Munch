@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <!-- Pear body -->
+    <path d="M 50 25 Q 75 25 75 50 Q 75 85 50 90 Q 25 85 25 50 Q 25 25 50 25" fill="#D4E157"/>
+    
+    <!-- Stem -->
+    <path d="M 50 5 C 50 5, 45 15, 50 25" stroke="#654321" stroke-width="3" fill="none"/>
+    <path d="M 50 15 C 50 15, 60 10, 55 20" stroke="#228B22" stroke-width="3" fill="none"/>
+    
+    <!-- Highlight -->
+    <circle cx="40" cy="35" r="12" fill="rgba(255,255,255,0.3)"/>
+</svg> 

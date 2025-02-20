@@ -17,7 +17,23 @@
         <!-- Start Page -->
         <div id="start-page" class="page active">
             <h1>Apple Math Munch</h1>
+            <div class="theme-toggle">
+                <button id="themeButton" class="theme-button">
+                    <span class="light-icon">🌞</span>
+                    <span class="dark-icon">🌙</span>
+                </button>
+            </div>
             <p>Select apples that sum to 10 to score points!</p>
+            <div class="fruit-selector">
+                <h3>Choose Your Fruit:</h3>
+                <div class="fruit-options">
+                    <button class="fruit-button active" data-fruit="apple">🍎 Apple</button>
+                    <button class="fruit-button" data-fruit="orange">🍊 Orange</button>
+                    <button class="fruit-button" data-fruit="pear">🍐 Pear</button>
+                    <button class="fruit-button" data-fruit="cherry">🍒 Cherry</button>
+                    <button class="fruit-button" data-fruit="grape">🍇 Grape</button>
+                </div>
+            </div>
             <div class="start-button-container">
                 <button id="startButton" class="big-button">Start Game</button>
             </div>
@@ -67,6 +83,7 @@
                 <p>Highest Score: <span id="high-score">0</span></p>
             </div>
             <button id="playAgainButton" class="big-button">Play Again</button>
+            <button id="homeButton" class="big-button home-button">Home</button>
             <button id="clearHighScoreButton" class="clear-score-button">Clear High Score</button>
         </div>
     </div>

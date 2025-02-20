@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <!-- Two cherries -->
+    <circle cx="35" cy="60" r="25" fill="#D32F2F"/>
+    <circle cx="65" cy="65" r="25" fill="#B71C1C"/>
+    
+    <!-- Stems -->
+    <path d="M 35 60 C 35 60, 45 30, 50 20" stroke="#654321" stroke-width="3" fill="none"/>
+    <path d="M 65 65 C 65 65, 55 35, 50 20" stroke="#654321" stroke-width="3" fill="none"/>
+    <path d="M 50 20 C 50 20, 45 10, 50 5" stroke="#654321" stroke-width="3" fill="none"/>
+    
+    <!-- Highlights -->
+    <circle cx="25" cy="50" r="8" fill="rgba(255,255,255,0.3)"/>
+    <circle cx="55" cy="55" r="8" fill="rgba(255,255,255,0.3)"/>
+</svg> 

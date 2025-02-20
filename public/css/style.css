@@ -12,9 +12,10 @@ body {
     justify-content: center;
     align-items: flex-start;
     min-height: -webkit-fill-available;
-    background-color: #f0f0f0;
+    background-color: var(--bg-color);
     font-family: Arial, sans-serif;
     overscroll-behavior: none;
+    color: var(--text-color);
 }
 
 #game-container {
@@ -36,11 +37,18 @@ body {
     position: sticky;
     top: env(safe-area-inset-top);
     z-index: 10;
-    background-color: rgba(255, 255, 255, 0.95);
+    background-color: var(--game-info-bg);
     padding: 8px;
     margin: 4px auto;
     width: 100%;
     box-sizing: border-box;
+    display: grid;
+    grid-template-columns: 1fr; /* Single column */
+    grid-template-rows: auto auto; /* Two rows: score and timer */
+    gap: 6px;
+    align-items: center;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px var(--game-info-shadow);
 }
 
 #gameCanvas {
@@ -51,6 +59,7 @@ body {
     height: auto;
     touch-action: none;
     display: block;
+    margin: 20px; /* Add margin to canvas instead of cropping */
 }
 
 .page {
@@ -78,9 +87,9 @@ body {
     margin: 30px auto;
     max-width: 500px;
     padding: 20px;
-    background: white;
+    background: var(--card-bg);
+    box-shadow: 0 2px 5px var(--shadow-color);
     border-radius: 10px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
 .instructions ul {
@@ -131,8 +140,8 @@ body {
     background-color: #1976D2;
 }
 
-h1 {
-    color: #333;
+h1, h2, h3 {
+    color: var(--text-color);
     margin-bottom: 30px;
 }
 
@@ -170,10 +179,10 @@ h1 {
 }
 
 .popup-content {
-    background-color: white;
+    background-color: var(--card-bg);
     padding: 20px;
     border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 10px var(--shadow-color);
     text-align: center;
     max-width: 80%;
     min-width: 300px;
@@ -249,36 +258,12 @@ h1 {
 
 @media (max-width: 480px) {
     #game-info {
-        grid-template-columns: 1fr 1fr; /* Two columns for score and debug */
-        gap: 4px;
         padding: 4px;
-    }
-    
-    .score-container {
-        grid-column: 1;
+        gap: 4px;
     }
     
     .timer-container {
-        grid-column: 1 / -1;
-        height: 15px; /* Even smaller on mobile */
-        margin-top: 4px;
-    }
-    
-    .timer-text {
-        font-size: 24px;
-    }
-    
-    #tipButton, #autoTipButton, #continuousAutoButton {
-        grid-column: span 2;
-        padding: 5px;
-        margin: 0;
-        font-size: 12px;
-        min-height: 25px;
-    }
-    
-    h1 {
-        font-size: 18px;
-        margin: 4px 0;
+        height: 15px;
     }
 }
 
@@ -365,20 +350,18 @@ h1 {
 
 /* Update timer progress bar styles */
 .timer-container {
-    width: 100%; /* Full width */
-    height: 20px; /* Smaller height */
-    min-width: auto; /* Remove min-width constraint */
-    background-color: #eee;
-    border-radius: 10px; /* Slightly smaller radius */
+    grid-column: 1 / -1; /* Span all columns */
+    width: 100%;
+    height: 20px;
+    background-color: var(--timer-bg);
+    border-radius: 10px;
     overflow: hidden;
     position: relative;
     margin: 0;
-    border: 2px solid #ccc;
+    border: 2px solid var(--timer-border);
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
     display: flex;
     align-items: center;
-    grid-column: 1 / -1; /* Span all columns */
-    order: 1; /* Place at bottom */
 }
 
 .timer-progress {
@@ -405,7 +388,7 @@ h1 {
     top: 50%;
     transform: translateY(-50%);
     text-align: center;
-    color: white;
+    color: white !important; /* Force white color */
     font-weight: bold;
     text-shadow: 
         -1px -1px 0 #000,
@@ -414,6 +397,27 @@ h1 {
         1px 1px 0 #000;
     z-index: 1;
     font-size: 24px;
+    transition: transform 0.3s, color 0.3s;
+}
+
+/* Add timer warning animation */
+@keyframes timerWarning {
+    0% {
+        transform: translateY(-50%) scale(1);
+        color: white;
+    }
+    50% {
+        transform: translateY(-50%) scale(1.1);
+        color: #ff4444;
+    }
+    100% {
+        transform: translateY(-50%) scale(1);
+        color: white;
+    }
+}
+
+.timer-text.warning {
+    animation: timerWarning 1s infinite;
 }
 
 /* Adjust font size for mobile */
@@ -430,40 +434,49 @@ h1 {
     }
 }
 
-/* Canvas container for better scaling */
+/* Update canvas container styles */
 .canvas-container {
     flex: 0 1 auto;
     position: relative;
     width: 100%;
     max-width: 1000px;
     margin: auto;
-    padding: 5px;
+    padding: 20px;
     box-sizing: border-box;
     display: flex;
     justify-content: center;
     align-items: center;
+    background-color: var(--canvas-bg);
+    border-radius: 10px;
+    overflow: visible; /* Allow animations to overflow */
+}
+
+/* Adjust padding for mobile */
+@media (max-width: 480px) {
+    .canvas-container {
+        padding: 10px;
+    }
 }
 
 /* Add these styles for score animation */
 .score-container {
-    position: relative;
+    grid-column: 1; /* First column */
     display: flex;
     align-items: center;
     justify-content: center;
     height: 30px;
-    grid-column: 1 / -1; /* Span full width */
-    text-align: center;
-    order: 0; /* Place at top */
+    color: var(--text-color);
 }
 
 .score-text {
     display: inline-block;
+    color: var(--text-color);
 }
 
 .score-popup {
     position: absolute;
     left: 50%;
-    color: #4CAF50;
+    color: var(--text-color);
     font-weight: bold;
     pointer-events: none;
     animation: scorePopup 0.8s ease-out forwards;
@@ -542,9 +555,9 @@ h1 {
     grid-template-columns: 1fr 1fr; /* Two equal columns */
     gap: 6px;
     padding: 8px;
-    background-color: rgba(255, 255, 255, 0.95);
+    background-color: var(--game-info-bg);
     border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px var(--game-info-shadow);
     margin: 4px auto;
     width: 100%;
     box-sizing: border-box;
@@ -841,28 +854,6 @@ h1 {
     }
 }
 
-/* Mute button styles */
-.mute-button {
-    background: none;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    padding: 5px;
-    transition: transform 0.2s;
-    grid-column: -1;
-    justify-self: end;
-}
-
-.mute-button:hover {
-    transform: scale(1.1);
-}
-
-@media (max-width: 480px) {
-    .mute-button {
-        font-size: 20px;
-    }
-}
-
 /* Add viewport height adjustment for iOS */
 @supports (-webkit-touch-callout: none) {
     .canvas-container {
@@ -916,4 +907,162 @@ h1 {
     .canvas-container {
         margin: auto;
     }
+}
+
+/* Fruit selector styles */
+.fruit-selector {
+    margin: 20px auto;
+    padding: 15px;
+    background: var(--card-bg);
+    box-shadow: 0 2px 5px var(--shadow-color);
+    border-radius: 10px;
+    max-width: 500px;
+}
+
+.fruit-selector h3 {
+    margin: 0 0 15px 0;
+    color: var(--text-color);
+}
+
+.fruit-options {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.fruit-button {
+    padding: 10px 20px;
+    border: 2px solid #ddd;
+    border-radius: 5px;
+    background: white;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.3s ease;
+}
+
+.fruit-button:hover {
+    background: #f5f5f5;
+    transform: translateY(-2px);
+}
+
+.fruit-button.active {
+    border-color: #4CAF50;
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+@media (max-width: 480px) {
+    .fruit-options {
+        gap: 5px;
+    }
+    
+    .fruit-button {
+        padding: 8px 16px;
+        font-size: 14px;
+    }
+}
+
+/* Dark mode styles */
+:root {
+    --bg-color: #f0f0f0;
+    --text-color: #333;
+    --card-bg: white;
+    --shadow-color: rgba(0, 0, 0, 0.1);
+    --timer-bg: #eee;
+    --timer-border: #ccc;
+    --canvas-bg: rgba(255, 255, 255, 0.5);
+    --game-info-bg: rgba(255, 255, 255, 0.95);
+    --game-info-shadow: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] {
+    --bg-color: #1a1a1a;
+    --text-color: #ffffff;
+    --card-bg: #2d2d2d;
+    --shadow-color: rgba(0, 0, 0, 0.3);
+    --timer-bg: #333;
+    --timer-border: #444;
+    --canvas-bg: rgba(45, 45, 45, 0.5);
+    --game-info-bg: rgba(45, 45, 45, 0.95);
+    --game-info-shadow: rgba(0, 0, 0, 0.3);
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+}
+
+.instructions, .fruit-selector, .popup-content {
+    background: var(--card-bg);
+    box-shadow: 0 2px 5px var(--shadow-color);
+}
+
+.canvas-container {
+    background-color: var(--canvas-bg);
+}
+
+.timer-container {
+    background-color: var(--timer-bg);
+    border-color: var(--timer-border);
+}
+
+/* Theme toggle button */
+.theme-toggle {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+}
+
+.theme-button {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    transition: transform 0.3s;
+}
+
+.theme-button:hover {
+    transform: scale(1.1);
+}
+
+[data-theme="light"] .dark-icon,
+[data-theme="dark"] .light-icon {
+    display: none;
+}
+
+@media (max-width: 480px) {
+    .theme-toggle {
+        top: 10px;
+        right: 10px;
+    }
+    
+    .theme-button {
+        font-size: 20px;
+    }
+}
+
+/* Update fruit selector heading */
+.fruit-selector h3 {
+    margin: 0 0 15px 0;
+    color: var(--text-color);
+}
+
+/* Update game over heading */
+#gameover-page h1,
+#gameover-page h2,
+.final-score p {
+    color: var(--text-color);
+}
+
+/* Home button styles */
+.home-button {
+    background-color: #2196F3;
+    margin: 10px;
+}
+
+.home-button:hover {
+    background-color: #1976D2;
 } 
