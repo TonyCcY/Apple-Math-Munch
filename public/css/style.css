@@ -801,4 +801,40 @@ h1 {
     .countdown-text {
         font-size: 80px;
     }
+}
+
+/* GitHub link styles */
+.github-link {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 100;
+}
+
+.github-link a {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #24292e;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+.github-link a:hover {
+    background-color: #1a1f24;
+}
+
+/* Adjust GitHub link for mobile */
+@media (max-width: 480px) {
+    .github-link {
+        bottom: 10px;
+        right: 10px;
+    }
+    
+    .github-link a {
+        padding: 8px 16px;
+        font-size: 12px;
+    }
 } 
