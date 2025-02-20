@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#4CAF50">
@@ -40,6 +40,9 @@
 
         <!-- Game Page -->
         <div id="game-page" class="page">
+            <div class="canvas-container">
+                <canvas id="gameCanvas"></canvas>
+            </div>
             <div id="game-info">
                 <span class="score-container">
                     Score: <span class="score-text"><span id="score">0</span></span>
@@ -54,9 +57,6 @@
                     <button id="continuousAutoButton">Auto Run</button>
                 </div>
             </div>
-            <div class="canvas-container">
-                <canvas id="gameCanvas"></canvas>
-            </div>
         </div>
 
         <!-- Game Over Page -->
@@ -64,9 +64,10 @@
             <h1>Game Over!</h1>
             <div class="final-score">
                 <h2>Final Score: <span id="final-score">0</span></h2>
-                <p>High Score: <span id="high-score">0</span></p>
+                <p>Highest Score: <span id="high-score">0</span></p>
             </div>
             <button id="playAgainButton" class="big-button">Play Again</button>
+            <button id="clearHighScoreButton" class="clear-score-button">Clear High Score</button>
         </div>
     </div>
     

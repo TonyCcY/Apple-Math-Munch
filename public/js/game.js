@@ -114,6 +114,12 @@ class AppleGame {
         
         // Initialize audio manager
         this.audio = new AudioManager();
+        
+        // Add timer interval property
+        this.timerInterval = null;
+        
+        // Add clear high score button handler
+        document.getElementById('clearHighScoreButton').addEventListener('click', () => this.clearHighScore());
     }
     
     createGrid() {
@@ -499,6 +505,12 @@ class AppleGame {
     }
     
     resetGame() {
+        // Clear the timer interval
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+            this.timerInterval = null;
+        }
+        
         // Reset game state
         this.score = 0;
         this.timeLeft = this.initialTime;
@@ -566,13 +578,24 @@ class AppleGame {
     
     // New method to start the game timer
     startGameTimer() {
-        const timerElement = document.getElementById('timer');
-        const timer = setInterval(() => {
+        // Clear any existing timer
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+        }
+        
+        // Start new timer
+        this.timerInterval = setInterval(() => {
             this.updateTimer();
         }, 1000);
     }
     
     gameOver() {
+        // Clear the timer interval
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+            this.timerInterval = null;
+        }
+        
         this.audio.play('gameOver');
         // Update high score if needed
         if (this.score > this.highScore) {
@@ -661,65 +684,75 @@ class AppleGame {
     
     startDestroyAnimation(x, y, value) {
         const startTime = performance.now();
-        const duration = 300; // Shorter duration for pop effect
+        const duration = 300;
         
-        // Create particles for this apple
-        const numParticles = 8;
+        // Create fewer particles with optimized properties
+        const numParticles = 6;
+        const particles = [];
+        
         for (let i = 0; i < numParticles; i++) {
             const angle = (i / numParticles) * Math.PI * 2;
-            this.particles.push({
+            particles.push({
                 x: x * this.cellSize + this.cellSize/2,
                 y: y * this.cellSize + this.cellSize/2,
-                vx: Math.cos(angle) * 5,
-                vy: Math.sin(angle) * 5,
-                size: 6,
+                vx: Math.cos(angle) * 2, // Reduced velocity
+                vy: Math.sin(angle) * 2,
+                size: 4, // Smaller particles
                 startTime,
-                duration: 500,
+                duration: 300, // Shorter duration
                 color: '#ff0000'
             });
         }
         
+        // Add all particles at once
+        this.particles.push(...particles);
+        
+        // Add single animation
         this.animations.push({
             x, y, value,
             startTime,
             duration,
-            update: (currentTime) => {
-                const progress = (currentTime - startTime) / duration;
-                return progress < 1;
-            }
+            scale: 1,
+            alpha: 1
         });
         
-        if (this.animations.length === 1) {
+        // Start animation loop if not running
+        if (!this.isAnimating) {
+            this.isAnimating = true;
             this.animationLoop();
         }
     }
     
     animationLoop() {
-        if (this.animations.length === 0 && this.particles.length === 0) return;
-        
         const currentTime = performance.now();
         
-        // Update and filter out completed animations
-        this.animations = this.animations.filter(anim => anim.update(currentTime));
+        // Update animations
+        this.animations = this.animations.filter(anim => {
+            const progress = Math.min(1, (currentTime - anim.startTime) / anim.duration);
+            anim.scale = 1 + progress * 0.3; // Smoother scale
+            anim.alpha = 1 - progress;
+            return progress < 1;
+        });
         
-        // Update and filter out completed particles
+        // Update particles
         this.particles = this.particles.filter(particle => {
             const progress = (currentTime - particle.startTime) / particle.duration;
             if (progress >= 1) return false;
             
-            // Update particle position
             particle.x += particle.vx;
             particle.y += particle.vy;
-            particle.size *= 0.95;  // Shrink particles
-            return true;
+            particle.size *= 0.97;
+            return particle.size > 0.5;
         });
         
-        // Redraw
+        // Draw frame
         this.draw();
         
-        // Continue loop if there are still active animations or particles
+        // Continue animation if needed
         if (this.animations.length > 0 || this.particles.length > 0) {
             requestAnimationFrame(() => this.animationLoop());
+        } else {
+            this.isAnimating = false;
         }
     }
     
@@ -1102,22 +1135,33 @@ class AppleGame {
             scorePopup.remove();
         }, 800);
     }
+    
+    clearHighScore() {
+        this.highScore = 0;
+        localStorage.removeItem('highScore');
+        document.getElementById('high-score').textContent = '0';
+        
+        // Show confirmation popup
+        this.showPopup('High score cleared!', true);
+    }
 }
 
 class AudioManager {
     constructor() {
-        this.sounds = {
-            select: new Audio('sounds/select.wav'),
-            match: new Audio('sounds/match.wav'),
-            wrong: new Audio('sounds/wrong.wav'),
-            countdown: new Audio('sounds/countdown.mp3'),
-            gameOver: new Audio('sounds/gameover.wav')
+        // Create audio pools for each sound type
+        this.audioPool = {
+            select: this.createAudioPool('sounds/select.wav', 3),
+            match: this.createAudioPool('sounds/match.wav', 3),
+            wrong: this.createAudioPool('sounds/wrong.wav', 3),
+            countdown: this.createAudioPool('sounds/countdown.mp3', 3),
+            gameOver: this.createAudioPool('sounds/gameover.wav', 2)
         };
         
-        // Initialize all sounds
-        Object.values(this.sounds).forEach(sound => {
-            sound.load();
-            sound.volume = 0.5; // Set default volume
+        // Set default volume for all sounds
+        Object.values(this.audioPool).forEach(pool => {
+            pool.forEach(audio => {
+                audio.volume = 0.5;
+            });
         });
         
         // Add mute button to game info
@@ -1126,11 +1170,29 @@ class AudioManager {
         this.updateMuteButton();
     }
     
+    createAudioPool(src, size) {
+        return Array.from({ length: size }, () => {
+            const audio = new Audio(src);
+            audio.load();
+            return audio;
+        });
+    }
+    
     play(soundName) {
-        if (!this.isMuted && this.sounds[soundName]) {
-            // Stop and reset the sound before playing
-            this.sounds[soundName].currentTime = 0;
-            this.sounds[soundName].play().catch(e => console.log('Sound play prevented'));
+        if (this.isMuted || !this.audioPool[soundName]) return;
+        
+        // Find an audio instance that's not playing
+        const audioPool = this.audioPool[soundName];
+        const availableAudio = audioPool.find(audio => audio.paused || audio.ended);
+        
+        if (availableAudio) {
+            availableAudio.currentTime = 0;
+            availableAudio.play().catch(e => console.log('Sound play prevented:', e));
+        } else {
+            // If all instances are playing, create a new temporary instance
+            const tempAudio = new Audio(audioPool[0].src);
+            tempAudio.volume = 0.5;
+            tempAudio.play().catch(e => console.log('Sound play prevented:', e));
         }
     }
     
