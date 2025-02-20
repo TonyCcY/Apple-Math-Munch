@@ -31,7 +31,7 @@ A fun and addictive browser-based puzzle game where you match apples to sum up t
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/apple-math-munch.git
+   git clone https://github.com/TonyCcY/Apple-Math-Munch.git
    cd apple-math-munch
    ```
 
