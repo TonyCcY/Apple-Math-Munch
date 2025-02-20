@@ -111,6 +111,9 @@ class AppleGame {
             document.getElementById('autoTipButton').addEventListener('click', () => this.showAutoTip());
             document.getElementById('continuousAutoButton').addEventListener('click', () => this.toggleContinuousAutoSolve());
         }
+        
+        // Initialize audio manager
+        this.audio = new AudioManager();
     }
     
     createGrid() {
@@ -206,6 +209,7 @@ class AppleGame {
         this.isDrawing = true;
         this.selectionStart = this.getMousePos(e);
         this.clearSelection();
+        this.audio.play('select');
     }
     
     handleMouseMove(e) {
@@ -267,6 +271,7 @@ class AppleGame {
         }
         
         if (sum === 10) {
+            this.audio.play('match');
             // Update score once with total number of apples
             this.updateScore(selectedCells.length);
             
@@ -280,6 +285,8 @@ class AppleGame {
             if (!this.hasValidMoves()) {
                 this.regenerateGrid();
             }
+        } else if (selectedCells.length > 0) {
+            this.audio.play('wrong');
         }
         
         this.clearSelection();
@@ -538,18 +545,21 @@ class AppleGame {
         // Start countdown
         let count = 3;
         countdownText.textContent = count;
+        this.audio.play('countdown'); // Play initial countdown sound
         
         const countdownInterval = setInterval(() => {
             count--;
             if (count > 0) {
                 countdownText.textContent = count;
-            } else {
-                // Remove countdown overlay
-                countdownOverlay.remove();
-                clearInterval(countdownInterval);
-                
-                // Start the actual game timer
-                this.startGameTimer();
+                this.audio.play('countdown'); // Play countdown sound for each number
+            } else if (count === 0) {
+                countdownText.textContent = 'GO!';
+                this.audio.play('match'); // Play a different sound for GO!
+                setTimeout(() => {
+                    countdownOverlay.remove();
+                    clearInterval(countdownInterval);
+                    this.startGameTimer();
+                }, 500); // Give a little time to see "GO!"
             }
         }, 1000);
     }
@@ -563,6 +573,7 @@ class AppleGame {
     }
     
     gameOver() {
+        this.audio.play('gameOver');
         // Update high score if needed
         if (this.score > this.highScore) {
             this.highScore = this.score;
@@ -1090,6 +1101,57 @@ class AppleGame {
         setTimeout(() => {
             scorePopup.remove();
         }, 800);
+    }
+}
+
+class AudioManager {
+    constructor() {
+        this.sounds = {
+            select: new Audio('sounds/select.wav'),
+            match: new Audio('sounds/match.wav'),
+            wrong: new Audio('sounds/wrong.wav'),
+            countdown: new Audio('sounds/countdown.mp3'),
+            gameOver: new Audio('sounds/gameover.wav')
+        };
+        
+        // Initialize all sounds
+        Object.values(this.sounds).forEach(sound => {
+            sound.load();
+            sound.volume = 0.5; // Set default volume
+        });
+        
+        // Add mute button to game info
+        this.addMuteButton();
+        this.isMuted = localStorage.getItem('isMuted') === 'true';
+        this.updateMuteButton();
+    }
+    
+    play(soundName) {
+        if (!this.isMuted && this.sounds[soundName]) {
+            // Stop and reset the sound before playing
+            this.sounds[soundName].currentTime = 0;
+            this.sounds[soundName].play().catch(e => console.log('Sound play prevented'));
+        }
+    }
+    
+    addMuteButton() {
+        const muteButton = document.createElement('button');
+        muteButton.id = 'muteButton';
+        muteButton.className = 'mute-button';
+        muteButton.innerHTML = '🔊';
+        
+        muteButton.addEventListener('click', () => {
+            this.isMuted = !this.isMuted;
+            localStorage.setItem('isMuted', this.isMuted);
+            this.updateMuteButton();
+        });
+        
+        document.getElementById('game-info').appendChild(muteButton);
+    }
+    
+    updateMuteButton() {
+        const muteButton = document.getElementById('muteButton');
+        muteButton.innerHTML = this.isMuted ? '🔇' : '🔊';
     }
 }
 

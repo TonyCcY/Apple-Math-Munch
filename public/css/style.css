@@ -837,4 +837,26 @@ h1 {
         padding: 8px 16px;
         font-size: 12px;
     }
+}
+
+/* Mute button styles */
+.mute-button {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 5px;
+    transition: transform 0.2s;
+    grid-column: -1;
+    justify-self: end;
+}
+
+.mute-button:hover {
+    transform: scale(1.1);
+}
+
+@media (max-width: 480px) {
+    .mute-button {
+        font-size: 20px;
+    }
 } 
