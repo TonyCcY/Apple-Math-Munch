@@ -3,10 +3,10 @@
     <!-- Apple body -->
     <circle cx="50" cy="50" r="45" fill="#ff0000"/>
     
-    <!-- Optional: Add stem and leaf for more apple-like appearance -->
+    <!-- Stem and leaf -->
     <path d="M 50 5 C 50 5, 45 15, 55 15" stroke="#654321" stroke-width="3" fill="none"/>
     <path d="M 55 15 C 55 15, 65 10, 60 20" stroke="#228B22" stroke-width="3" fill="none"/>
     
-    <!-- Optional: Add highlight for 3D effect -->
+    <!-- Highlight -->
     <circle cx="35" cy="35" r="15" fill="rgba(255,255,255,0.3)"/>
 </svg>

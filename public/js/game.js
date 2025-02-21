@@ -73,8 +73,9 @@ class AppleGame {
             apple: 'images/apple.svg',
             orange: 'images/orange.svg',
             pear: 'images/pear.svg',
-            cherry: 'images/cherry.svg',
-            grape: 'images/grape.svg'
+            melon: 'images/melon.svg',
+            grape: 'images/grape.svg',
+            mango: 'images/mango.svg'
         };
         
         // Initialize fruit selector
@@ -282,8 +283,9 @@ class AppleGame {
             apple: '#ff0000',
             orange: '#FFA500',
             pear: '#D4E157',
-            cherry: '#D32F2F',
-            grape: '#9C27B0'
+            melon: '#4CAF50',
+            grape: '#9C27B0',
+            mango: '#FFB300'
         };
         
         // Initialize theme

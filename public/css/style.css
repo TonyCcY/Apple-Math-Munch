@@ -923,40 +923,50 @@ h1, h2, h3 {
 }
 
 .fruit-options {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 10px;
-    flex-wrap: wrap;
-    justify-content: center;
+    max-width: 400px;
+    margin: 0 auto;
+    padding: 10px;
 }
 
 .fruit-button {
-    padding: 10px 20px;
-    border: 2px solid #ddd;
-    border-radius: 5px;
-    background: white;
+    width: 100%;
+    padding: 12px;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-color);
     cursor: pointer;
+    transition: all 0.3s;
     font-size: 16px;
-    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }
 
 .fruit-button:hover {
-    background: #f5f5f5;
-    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.05);
 }
 
 .fruit-button.active {
     border-color: #4CAF50;
-    background: #e8f5e9;
-    color: #2e7d32;
+    background: rgba(76, 175, 80, 0.2);
 }
 
+/* Add responsive adjustments */
 @media (max-width: 480px) {
     .fruit-options {
-        gap: 5px;
+        max-width: 300px;
+        gap: 8px;
+        padding: 8px;
     }
-    
+
     .fruit-button {
-        padding: 8px 16px;
+        padding: 8px;
         font-size: 14px;
     }
 }

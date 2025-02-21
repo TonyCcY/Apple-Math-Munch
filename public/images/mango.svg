@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <!-- Pear body - sized to match r=45 circle -->
+    <!-- Mango body - sized to match r=45 circle -->
     <path d="
         M 50 15
         C 75 15, 90 35, 90 55
         C 90 80, 70 90, 50 90
         C 30 90, 10 80, 10 55
         C 10 35, 25 15, 50 15
-    " fill="#D4E157"/>
+    " fill="#FFB300"/>
     
     <!-- Stem -->
     <path d="M 50 5 C 50 5, 45 10, 50 15" stroke="#654321" stroke-width="3" fill="none"/>
@@ -15,4 +15,8 @@
     
     <!-- Highlight -->
     <circle cx="35" cy="35" r="15" fill="rgba(255,255,255,0.3)"/>
+    
+    <!-- Texture lines -->
+    <path d="M 30 35 Q 50 40 70 35" stroke="#FFA000" stroke-width="2" fill="none" opacity="0.5"/>
+    <path d="M 25 55 Q 50 60 75 55" stroke="#FFA000" stroke-width="2" fill="none" opacity="0.5"/>
 </svg> 
