@@ -106,25 +106,166 @@ class AppleGame {
         const isDebugMode = window.location.search.includes('?debug');
         if (isDebugMode) {
             // Show debug controls
-            document.getElementById('debug-controls').style.display = 'flex';
+            const debugControls = document.getElementById('debug-controls');
+            debugControls.style.display = 'flex';
             
-            // Add debug event listeners
-            document.getElementById('tipButton').addEventListener('click', () => this.showTip());
-            document.getElementById('autoTipButton').addEventListener('click', () => this.showAutoTip());
-            document.getElementById('continuousAutoButton').addEventListener('click', () => this.toggleContinuousAutoSolve());
-            
-            // Add regen debug button
-            const regenButton = document.createElement('button');
-            regenButton.textContent = 'Trigger Regen';
-            regenButton.className = 'debug-button';
-            regenButton.addEventListener('click', () => {
-                // Force regenerate grid regardless of valid moves
-                const originalHasValidMoves = this.hasValidMoves;
-                this.hasValidMoves = () => false; // Temporarily override to force regeneration
-                this.regenerateGrid();
-                this.hasValidMoves = originalHasValidMoves; // Restore original function
+            // Create debug buttons with consistent styling
+            const debugButtons = [
+                {
+                    text: 'Show Tip',
+                    subText: `(${this.tipsLeft})`,
+                    id: 'tipButton',
+                    onClick: () => {
+                        this.showTip();
+                        // Update button text after using tip
+                        const btn = document.getElementById('tipButton');
+                        if (btn) {
+                            btn.querySelector('.main-text').textContent = 'Show Tip';
+                            btn.querySelector('.sub-text').textContent = `(${this.tipsLeft})`;
+                        }
+                    }
+                },
+                {
+                    text: 'Auto Solve',
+                    subText: `(${this.tipsLeft})`,
+                    id: 'autoTipButton',
+                    onClick: () => {
+                        this.showAutoTip();
+                        // Update button text after auto solve
+                        const btn = document.getElementById('autoTipButton');
+                        if (btn) {
+                            btn.querySelector('.main-text').textContent = 'Auto Solve';
+                            btn.querySelector('.sub-text').textContent = `(${this.tipsLeft})`;
+                        }
+                    }
+                },
+                {
+                    text: 'Auto Run',
+                    id: 'continuousAutoButton',
+                    onClick: () => {
+                        this.toggleContinuousAutoSolve();
+                        // Update button text based on auto-solve state
+                        const btn = document.getElementById('continuousAutoButton');
+                        if (btn) {
+                            btn.querySelector('.main-text').textContent = this.isAutoSolving ? 'Stop Auto' : 'Auto Run';
+                            btn.style.backgroundColor = this.isAutoSolving ? '#f44336' : '#4CAF50';
+                        }
+                    }
+                },
+                {
+                    text: 'Regen Grid',
+                    id: 'regenButton',
+                    onClick: () => {
+                        const originalHasValidMoves = this.hasValidMoves;
+                        this.hasValidMoves = () => false;
+                        this.regenerateGrid();
+                        this.hasValidMoves = originalHasValidMoves;
+                    }
+                }
+            ];
+
+            // Remove existing buttons
+            debugControls.innerHTML = '';
+
+            // Add styled buttons
+            debugButtons.forEach(button => {
+                const btnElement = document.createElement('button');
+                btnElement.className = 'debug-button';
+                btnElement.id = button.id;
+                
+                // Create text container
+                const textContainer = document.createElement('div');
+                textContainer.className = 'button-text-container';
+                
+                // Add main text
+                const mainText = document.createElement('span');
+                mainText.className = 'main-text';
+                mainText.textContent = button.text;
+                textContainer.appendChild(mainText);
+                
+                // Add sub text if exists
+                if (button.subText) {
+                    const subText = document.createElement('span');
+                    subText.className = 'sub-text';
+                    subText.textContent = button.subText;
+                    textContainer.appendChild(subText);
+                }
+                
+                btnElement.appendChild(textContainer);
+                btnElement.addEventListener('click', button.onClick);
+                debugControls.appendChild(btnElement);
             });
-            document.getElementById('debug-controls').appendChild(regenButton);
+
+            // Add CSS styles for debug controls and buttons
+            const style = document.createElement('style');
+            style.textContent = `
+                #debug-controls {
+                    position: fixed;
+                    top: 10px;
+                    right: 10px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                    z-index: 1000;
+                    background: rgba(0, 0, 0, 0.8);
+                    padding: 10px;
+                    border-radius: 8px;
+                    min-width: 160px;
+                }
+
+                .debug-button {
+                    width: 160px;
+                    height: 40px;
+                    background-color: #4CAF50;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    font-size: 14px;
+                    cursor: pointer;
+                    transition: all 0.3s;
+                    font-weight: bold;
+                    text-transform: uppercase;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 0;
+                }
+
+                .button-text-container {
+                    width: 100%;
+                    height: 100%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 5px;
+                    white-space: nowrap;
+                    padding: 0 10px;
+                    box-sizing: border-box;
+                }
+
+                .main-text {
+                    flex: 1;
+                    text-align: center;
+                }
+
+                .sub-text {
+                    font-size: 12px;
+                    opacity: 0.8;
+                    min-width: 45px;
+                    text-align: right;
+                }
+
+                .debug-button:hover {
+                    background-color: #45a049;
+                    transform: scale(1.02);
+                }
+
+                .debug-button:active {
+                    background-color: #3d8b40;
+                    transform: scale(0.98);
+                }
+            `;
+            document.head.appendChild(style);
         }
         
         // Initialize audio manager
@@ -472,19 +613,47 @@ class AppleGame {
         
         // Draw apple image or fallback circle
         if (this.appleImageLoaded) {
-            const size = this.cellSize * 0.8 * scale; // Apply scale to size
-            this.ctx.drawImage(
-                this.appleImage,
-                -size/2,
-                -size/2,
-                size,
-                size
-            );
+            const size = this.cellSize * 0.8 * scale;
+            
+            if (hint) {
+                // Create a temporary canvas for tinting
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCanvas.width = this.appleImage.width;
+                tempCanvas.height = this.appleImage.height;
+                
+                // Draw the original image
+                tempCtx.drawImage(this.appleImage, 0, 0);
+                
+                // Apply lighter green tint
+                tempCtx.globalCompositeOperation = 'source-atop';
+                tempCtx.fillStyle = '#7FFF00'; // Changed to Chartreuse for brighter green
+                tempCtx.globalAlpha = 0.7; // Increased opacity
+                tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+                
+                // Draw the tinted image
+                this.ctx.drawImage(
+                    tempCanvas,
+                    -size/2,
+                    -size/2,
+                    size,
+                    size
+                );
+            } else {
+                // Draw normal apple
+                this.ctx.drawImage(
+                    this.appleImage,
+                    -size/2,
+                    -size/2,
+                    size,
+                    size
+                );
+            }
         } else {
             this.ctx.beginPath();
-            this.ctx.scale(scale, scale); // Apply scale for fallback circle
+            this.ctx.scale(scale, scale);
             this.ctx.arc(0, 0, this.cellSize * 0.4, 0, Math.PI * 2);
-            this.ctx.fillStyle = selected ? '#ff6666' : (hint ? '#ffff00' : '#ff0000');
+            this.ctx.fillStyle = selected ? '#ff6666' : (hint ? '#7FFF00' : '#ff0000');
             this.ctx.fill();
         }
         
@@ -506,8 +675,8 @@ class AppleGame {
         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         this.ctx.fillText(value, 2, 2);
         
-        // Draw main text
-        this.ctx.fillStyle = selected ? '#ffffff' : (hint ? '#000000' : '#ffffff');
+        // Draw main text (always white)
+        this.ctx.fillStyle = '#ffffff';
         this.ctx.fillText(value, 0, 0);
         
         this.ctx.restore();
