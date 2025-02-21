@@ -1317,7 +1317,7 @@ class AppleGame {
         // Example: checking if touch coordinates intersect with game objects
     }
 
-    // Add this new method
+    // Update the resetCurrentGame method
     resetCurrentGame() {
         // Stop auto-solve if it's running
         this.stopAutoSolve();
@@ -1329,12 +1329,17 @@ class AppleGame {
         this.score = 0;
         document.getElementById('score').textContent = '0';
         
-        // Reset the timer to initial value
-        clearInterval(this.timerInterval);
+        // Clear any ongoing timer
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+            this.timerInterval = null;
+        }
+        
+        // Reset timer values
         this.timeLeft = this.initialTime;
         this.msLeft = this.timeLeft * 1000;
         
-        // Update timer display
+        // Reset timer display
         const minutes = Math.floor(this.timeLeft / 60);
         const seconds = this.timeLeft % 60;
         document.getElementById('timer').textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:00`;
@@ -1353,14 +1358,37 @@ class AppleGame {
             this.tipTimeout = null;
         }
         
-        // Start the game timer again
-        this.startGameTimer();
+        // Create and show countdown overlay
+        const countdownOverlay = document.createElement('div');
+        countdownOverlay.className = 'countdown-overlay';
+        const countdownText = document.createElement('div');
+        countdownText.className = 'countdown-text';
+        countdownOverlay.appendChild(countdownText);
+        document.getElementById('game-page').appendChild(countdownOverlay);
+        
+        // Start countdown
+        let count = 3;
+        countdownText.textContent = count;
+        this.audio.play('countdown');
+        
+        const countdownInterval = setInterval(() => {
+            count--;
+            if (count > 0) {
+                countdownText.textContent = count;
+                this.audio.play('countdown');
+            } else if (count === 0) {
+                countdownText.textContent = 'GO!';
+                this.audio.play('match');
+                setTimeout(() => {
+                    countdownOverlay.remove();
+                    clearInterval(countdownInterval);
+                    this.startGameTimer();
+                }, 500);
+            }
+        }, 1000);
         
         // Redraw the game
         this.draw();
-        
-        // Play reset sound
-        this.audio.play('select');
     }
 }
 
