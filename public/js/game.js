@@ -441,18 +441,23 @@ class AppleGame {
         // Check if we have a valid selection
         if (this.currentSum === 10) {
             this.audio.play('match');
-            // Update score once with total number of apples
-            this.updateScore(this.currentSum);
+            
+            // Count selected apples
+            let selectedCount = 0;
             
             // Animate and destroy selected cells
             this.grid.forEach((row, y) => {
                 row.forEach((cell, x) => {
                     if (cell.selected) {
+                        selectedCount++;
                         this.startDestroyAnimation(x, y, cell.value);
                         cell.value = null;
                     }
                 });
             });
+            
+            // Add 1 point per apple
+            this.updateScore(selectedCount);
             
             // Check if we need to regenerate the grid
             if (!this.hasValidMoves()) {
@@ -1258,15 +1263,17 @@ class AppleGame {
             setTimeout(() => {
                 // Calculate sum to verify it's still valid
                 let sum = 0;
+                let validCount = 0;
                 combination.forEach(({x, y}) => {
                     if (this.grid[y][x].value !== null) {
                         sum += this.grid[y][x].value;
+                        validCount++;
                     }
                 });
                 
                 if (sum === 10) {
-                    // Update score once with total number of apples
-                    this.updateScore(combination.length);
+                    // Add 1 point per apple
+                    this.updateScore(validCount);
                     
                     // Destroy the apples
                     combination.forEach(({x, y}) => {
