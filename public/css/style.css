@@ -35,31 +35,22 @@ body {
 
 #game-info {
     position: sticky;
-    top: env(safe-area-inset-top);
+    top: 0;
     z-index: 10;
-    background-color: var(--game-info-bg);
-    padding: 8px;
-    margin: 4px auto;
     width: 100%;
+    padding: 10px;
     box-sizing: border-box;
-    display: grid;
-    grid-template-columns: 1fr; /* Single column */
-    grid-template-rows: auto auto; /* Two rows: score and timer */
-    gap: 6px;
-    align-items: center;
+    background-color: var(--game-info-bg);
     border-radius: 8px;
-    box-shadow: 0 2px 8px var(--game-info-shadow);
+    margin-bottom: 10px;
 }
 
 #gameCanvas {
-    position: relative;
+    display: block;
     max-width: 100%;
-    max-height: 70vh;
+    max-height: 100%;
     width: auto;
     height: auto;
-    touch-action: none;
-    display: block;
-    margin: 20px; /* Add margin to canvas instead of cropping */
 }
 
 .page {
@@ -347,55 +338,11 @@ h1, h2, h3 {
 }
 
 /* Update timer progress bar styles */
-.timer-container {
-    grid-column: 1 / -1; /* Span all columns */
-    width: 100%;
-    height: 20px;
-    background-color: var(--timer-bg);
-    border-radius: 10px;
-    overflow: hidden;
-    position: relative;
-    margin: 0;
-    border: 2px solid var(--timer-border);
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
-    display: flex;
-    align-items: center;
-}
-
-.timer-progress {
-    width: 100%;
-    height: 100%;
-    background-color: #4CAF50;
-    transition: width 1s linear;
-    background-image: linear-gradient(
-        45deg,
-        rgba(255,255,255,0.15) 25%,
-        transparent 25%,
-        transparent 50%,
-        rgba(255,255,255,0.15) 50%,
-        rgba(255,255,255,0.15) 75%,
-        transparent 75%
-    );
-    background-size: 20px 20px; /* Add subtle pattern */
-}
-
-.timer-text {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    text-align: center;
-    color: white !important; /* Force white color */
-    font-weight: bold;
-    text-shadow: 
-        -1px -1px 0 #000,
-        1px -1px 0 #000,
-        -1px 1px 0 #000,
-        1px 1px 0 #000;
-    z-index: 1;
-    font-size: 24px;
-    transition: transform 0.3s, color 0.3s;
+.timer-container,
+.timer-progress,
+.timer-text,
+.warning {
+    display: none;
 }
 
 /* Add timer warning animation */
@@ -434,26 +381,17 @@ h1, h2, h3 {
 
 /* Update canvas container styles */
 .canvas-container {
-    flex: 0 1 auto;
     position: relative;
-    width: 100%;
-    max-width: 1000px;
-    margin: auto;
-    padding: 20px;
-    box-sizing: border-box;
+    background-color: var(--canvas-bg);
+    border-radius: 8px;
+    padding: 10px;
+    margin: 10px auto;
     display: flex;
     justify-content: center;
     align-items: center;
-    background-color: var(--canvas-bg);
-    border-radius: 10px;
-    overflow: visible; /* Allow animations to overflow */
-}
-
-/* Adjust padding for mobile */
-@media (max-width: 480px) {
-    .canvas-container {
-        padding: 10px;
-    }
+    max-width: 100%;
+    max-height: calc(100vh - 100px); /* Account for game info and padding */
+    box-sizing: border-box;
 }
 
 /* Add these styles for score animation */
@@ -1129,4 +1067,26 @@ body {
         grid-column: auto;
         margin: 0;
     }
+}
+
+/* Remove these styles as they're no longer needed */
+.canvas-timer-container,
+.canvas-timer-bar,
+.canvas-timer-text {
+    display: none;
+}
+
+/* Update canvas container to remove extra padding */
+.canvas-container {
+    position: relative;
+    background-color: var(--canvas-bg);
+    border-radius: 8px;
+    padding: 10px;
+    margin: 10px auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    max-width: 100%;
+    max-height: calc(100vh - 100px); /* Account for game info and padding */
+    box-sizing: border-box;
 } 

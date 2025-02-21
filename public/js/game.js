@@ -24,9 +24,12 @@ class AppleGame {
         this.maxCellSize = 60;
         this.cellSize = this.maxCellSize; // Start with maximum size
         
+        // Add timer height to canvas calculations
+        this.timerHeight = 24;
+        
         // Set canvas size
         this.canvas.width = this.gridWidth * this.cellSize;
-        this.canvas.height = this.gridHeight * this.cellSize;
+        this.canvas.height = this.gridHeight * this.cellSize + this.timerHeight; // Add timer height
         
         // Initialize grid
         this.grid = this.createGrid();
@@ -91,8 +94,7 @@ class AppleGame {
         this.handleResize();
         window.addEventListener('resize', () => this.handleResize());
         
-        // Add timer progress elements
-        this.timerProgress = document.querySelector('.timer-progress');
+        // Keep these timer-related properties
         this.initialTime = 60 * 2;
         this.timeLeft = this.initialTime;
         this.lastUpdate = 0;
@@ -316,6 +318,12 @@ class AppleGame {
                 this.resetCurrentGame();
             }
         });
+
+        // Add timer animation properties
+        this.lastTimerUpdate = 0;
+        this.targetTimeLeft = this.initialTime;
+        this.currentTimeLeft = this.initialTime;
+        this.timerAnimationFrame = null;
     }
     
     createGrid() {
@@ -342,18 +350,14 @@ class AppleGame {
         // Add global mouseup handler to catch releases outside canvas
         document.addEventListener('mouseup', (e) => {
             if (this.isDrawing) {
-                this.isDrawing = false;
-                this.clearSelection();
-                this.draw();
+                this.handleMouseUp(null);
             }
         });
         
         // Optional: handle mouse leaving the window
         window.addEventListener('blur', () => {
             if (this.isDrawing) {
-                this.isDrawing = false;
-                this.clearSelection();
-                this.draw();
+                this.handleMouseUp(null);
             }
         });
     }
@@ -378,39 +382,46 @@ class AppleGame {
         
         this.canvas.addEventListener('touchcancel', (e) => {
             e.preventDefault();
-            this.isDrawing = false;
-            this.clearSelection();
-            this.draw();
+            this.handleMouseUp(e);
         });
     }
     
     getMousePos(e) {
         const rect = this.canvas.getBoundingClientRect();
-        const dpr = window.devicePixelRatio || 1;
         
-        // Get the touch/mouse coordinates relative to the canvas
-        const clientX = e.clientX || e.pageX || e.touches[0].clientX;
-        const clientY = e.clientY || e.pageY || e.touches[0].clientY;
+        // Get the touch/mouse coordinates
+        let clientX, clientY;
+        if (e.touches) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        } else {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        }
         
         // Calculate the scale of the canvas
         const scaleX = this.canvas.width / rect.width;
-        const scaleY = this.canvas.height / rect.height;
+        const scaleY = (this.canvas.height - this.timerHeight) / rect.height;
         
-        // Get position within the canvas accounting for scaling
-        const canvasX = (clientX - rect.left) * scaleX;
-        const canvasY = (clientY - rect.top) * scaleY;
+        // Get position within the canvas
+        const x = (clientX - rect.left) * scaleX;
+        const y = (clientY - rect.top) * scaleY;
         
-        // Convert to grid coordinates
-        return {
-            x: Math.floor(canvasX / this.cellSize),
-            y: Math.floor(canvasY / this.cellSize)
-        };
+        // Convert to grid coordinates and ensure within grid bounds
+        const gridX = Math.max(0, Math.min(this.gridWidth - 1, Math.floor(x / this.cellSize)));
+        const gridY = Math.max(0, Math.min(this.gridHeight - 1, Math.floor(y / this.cellSize)));
+        
+        return { x: gridX, y: gridY };
     }
     
     handleMouseDown(e) {
         this.isDrawing = true;
-        this.selectionStart = this.getMousePos(e);
+        const pos = this.getMousePos(e);
+        this.selectionStart = pos;
+        this.selectionEnd = { ...pos }; // Set end position same as start
         this.clearSelection();
+        this.updateSelection(); // Add this to immediately select the cell under cursor
+        this.draw();
         this.audio.play('select');
     }
     
@@ -426,7 +437,38 @@ class AppleGame {
         if (!this.isDrawing) return;
         
         this.isDrawing = false;
-        this.checkSelection();
+        
+        // Check if we have a valid selection
+        if (this.currentSum === 10) {
+            this.audio.play('match');
+            // Update score once with total number of apples
+            this.updateScore(this.currentSum);
+            
+            // Animate and destroy selected cells
+            this.grid.forEach((row, y) => {
+                row.forEach((cell, x) => {
+                    if (cell.selected) {
+                        this.startDestroyAnimation(x, y, cell.value);
+                        cell.value = null;
+                    }
+                });
+            });
+            
+            // Check if we need to regenerate the grid
+            if (!this.hasValidMoves()) {
+                this.regenerateGrid();
+            }
+        } else if (this.currentSum > 0) {
+            this.audio.play('wrong');
+        }
+        
+        // Clear selection
+        this.clearSelection();
+        this.selectionStart = { x: 0, y: 0 };
+        this.selectionEnd = { x: 0, y: 0 };
+        this.currentSum = 0;
+        
+        // Force redraw to clear selection rectangle
         this.draw();
     }
     
@@ -544,6 +586,12 @@ class AppleGame {
         // Clear canvas
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
+        // Save context state
+        this.ctx.save();
+        
+        // Move context up to leave space for timer
+        this.ctx.translate(0, 0);
+        
         // Keep track of cells being animated
         const animatingCells = new Set();
         this.animations.forEach(anim => {
@@ -601,6 +649,50 @@ class AppleGame {
             this.ctx.lineWidth = 2;
             this.ctx.strokeRect(startX, startY, endX - startX, endY - startY);
         }
+        
+        // Restore context
+        this.ctx.restore();
+        
+        // Draw timer bar at the bottom
+        const padding = 2;
+        const progress = (this.currentTimeLeft / this.initialTime);
+        
+        // Draw timer background
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        this.ctx.fillRect(0, this.canvas.height - this.timerHeight, this.canvas.width, this.timerHeight);
+        
+        // Draw progress bar
+        let barColor = '#4CAF50';
+        if (this.currentTimeLeft < 10) {
+            barColor = '#f44336';
+        } else if (this.currentTimeLeft < 30) {
+            barColor = '#ff9800';
+        }
+        this.ctx.fillStyle = barColor;
+        this.ctx.fillRect(
+            padding, 
+            this.canvas.height - this.timerHeight + padding, 
+            (this.canvas.width - padding * 2) * progress, 
+            this.timerHeight - padding * 2
+        );
+        
+        // Draw timer text
+        const minutes = Math.floor(this.currentTimeLeft / 60);
+        const seconds = Math.floor(this.currentTimeLeft % 60);
+        const ms = Math.floor((this.currentTimeLeft * 1000) % 1000 / 10);
+        const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:${ms.toString().padStart(2, '0')}`;
+        
+        this.ctx.font = 'bold 14px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        
+        // Draw text shadow
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        this.ctx.fillText(timeText, this.canvas.width / 2 + 1, this.canvas.height - this.timerHeight / 2 + 1);
+        
+        // Draw text
+        this.ctx.fillStyle = 'white';
+        this.ctx.fillText(timeText, this.canvas.width / 2, this.canvas.height - this.timerHeight / 2);
     }
     
     drawApple(x, y, value, selected, hint, scale = 1, alpha = 1) {
@@ -721,7 +813,7 @@ class AppleGame {
         // Reset cell size to default
         this.cellSize = this.maxCellSize;
         this.canvas.width = this.gridWidth * this.cellSize;
-        this.canvas.height = this.gridHeight * this.cellSize;
+        this.canvas.height = this.gridHeight * this.cellSize + this.timerHeight;
         
         this.stopAutoSolve();
         
@@ -730,18 +822,19 @@ class AppleGame {
     }
     
     startGame() {
+        // Reset game state
+        this.score = 0;
+        document.getElementById('score').textContent = '0';
+        this.grid = this.createGrid();
+        
+        // Show game page
         this.showPage('game-page');
         
-        // Update initial timer display with padded minutes
-        const minutes = Math.floor(this.timeLeft / 60);
-        const seconds = this.timeLeft % 60;
-        document.getElementById('timer').textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:00`;
-        
-        // Reset progress bar
-        this.timerProgress.style.width = '100%';
-        this.timerProgress.style.backgroundColor = '#4CAF50';
-        
-        this.draw();
+        // Reset timer values
+        this.timeLeft = this.initialTime;
+        this.msLeft = this.timeLeft * 1000;
+        this.currentTimeLeft = this.initialTime;
+        this.targetTimeLeft = this.initialTime;
         
         // Create and show countdown overlay
         const countdownOverlay = document.createElement('div');
@@ -754,23 +847,26 @@ class AppleGame {
         // Start countdown
         let count = 3;
         countdownText.textContent = count;
-        this.audio.play('countdown'); // Play initial countdown sound
+        this.audio.play('countdown');
         
         const countdownInterval = setInterval(() => {
             count--;
             if (count > 0) {
                 countdownText.textContent = count;
-                this.audio.play('countdown'); // Play countdown sound for each number
+                this.audio.play('countdown');
             } else if (count === 0) {
                 countdownText.textContent = 'GO!';
-                this.audio.play('match'); // Play a different sound for GO!
+                this.audio.play('match');
                 setTimeout(() => {
                     countdownOverlay.remove();
                     clearInterval(countdownInterval);
                     this.startGameTimer();
-                }, 500); // Give a little time to see "GO!"
+                }, 500);
             }
         }, 1000);
+        
+        // Force initial draw
+        this.draw();
     }
     
     // New method to start the game timer
@@ -817,6 +913,11 @@ class AppleGame {
         this.showPage('gameover-page');
         
         this.stopAutoSolve();
+
+        if (this.timerAnimationFrame) {
+            cancelAnimationFrame(this.timerAnimationFrame);
+            this.timerAnimationFrame = null;
+        }
     }
     
     showTip() {
@@ -1296,87 +1397,85 @@ class AppleGame {
     }
     
     handleResize() {
-        // Get the container dimensions
+        // Get the container and game info dimensions
         const container = document.querySelector('.canvas-container');
-        const containerStyle = window.getComputedStyle(container);
-        const paddingX = parseFloat(containerStyle.paddingLeft) + parseFloat(containerStyle.paddingRight);
-        const paddingY = parseFloat(containerStyle.paddingTop) + parseFloat(containerStyle.paddingBottom);
+        const gameInfo = document.getElementById('game-info');
+        const gameInfoHeight = gameInfo.offsetHeight;
         
-        // Get available space (excluding padding)
-        const availableWidth = container.clientWidth - paddingX;
-        const availableHeight = container.clientHeight - paddingY;
+        // Get viewport dimensions
+        const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
+        
+        // Calculate maximum available space
+        const maxAvailableHeight = viewportHeight - gameInfoHeight - 40; // 40px for padding
+        const maxAvailableWidth = viewportWidth - 40; // 40px for padding
+        
+        // Calculate the grid aspect ratio (including timer bar)
+        const gridAspectRatio = this.gridWidth / (this.gridHeight + this.timerHeight/this.cellSize);
         
         // Calculate the maximum size that maintains the grid aspect ratio
-        const gridAspectRatio = this.gridWidth / this.gridHeight;
-        const containerAspectRatio = availableWidth / availableHeight;
-        
         let newWidth, newHeight;
-        if (containerAspectRatio > gridAspectRatio) {
-            newHeight = availableHeight;
+        if (maxAvailableWidth / maxAvailableHeight > gridAspectRatio) {
+            // Height limited
+            newHeight = maxAvailableHeight;
             newWidth = newHeight * gridAspectRatio;
         } else {
-            newWidth = availableWidth;
+            // Width limited
+            newWidth = maxAvailableWidth;
             newHeight = newWidth / gridAspectRatio;
         }
         
         // Calculate the cell size
         const cellSizeByWidth = Math.floor(newWidth / this.gridWidth);
-        const cellSizeByHeight = Math.floor(newHeight / this.gridHeight);
+        const cellSizeByHeight = Math.floor(newHeight / (this.gridHeight + this.timerHeight/this.cellSize));
         const newCellSize = Math.min(
             this.maxCellSize,
             Math.max(this.minCellSize, Math.min(cellSizeByWidth, cellSizeByHeight))
         );
         
+        // Update cell size and canvas dimensions if changed
         if (newCellSize !== this.cellSize) {
             this.cellSize = newCellSize;
             this.canvas.width = this.gridWidth * this.cellSize;
-            this.canvas.height = this.gridHeight * this.cellSize;
+            this.canvas.height = (this.gridHeight * this.cellSize) + this.timerHeight;
+            
+            // Update container style to center the canvas
+            container.style.width = `${this.canvas.width}px`;
+            container.style.height = `${this.canvas.height}px`;
+            
             this.draw();
         }
     }
     
-    updateTimer() {
+    updateTimer(deltaTime) {
         if (this.msLeft > 0) {
-            // Convert to mm:ss:ms format
-            const totalSeconds = Math.floor(this.msLeft / 1000);
-            const minutes = Math.floor(totalSeconds / 60);
-            const seconds = totalSeconds % 60;
-            const ms = Math.floor((this.msLeft % 1000) / 10); // Get centiseconds (2 digits)
+            this.targetTimeLeft = this.msLeft / 1000;
             
-            const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:${ms.toString().padStart(2, '0')}`;
-            
-            const timerElement = document.getElementById('timer');
-            const timerTextElement = document.querySelector('.timer-text');
-            timerElement.textContent = timeString;
-            
-            // Update progress bar
-            const progress = (this.msLeft / (this.initialTime * 1000)) * 100;
-            this.timerProgress.style.width = `${progress}%`;
-            
-            // Change color and add warning animation based on time remaining
-            if (progress > 66) {
-                this.timerProgress.style.backgroundColor = '#4CAF50';
-                timerTextElement.classList.remove('warning');
-            } else if (progress > 33) {
-                this.timerProgress.style.backgroundColor = '#FFA000';
-                timerTextElement.classList.remove('warning');
-            } else {
-                this.timerProgress.style.backgroundColor = '#f44336';
-                timerTextElement.classList.add('warning');
-                
-                // Play warning sound at 10 seconds remaining
-                if (Math.floor(this.msLeft / 1000) === 10 && (this.msLeft % 1000) > 980) {
-                    this.audio.play('wrong');
-                }
+            // Start timer animation if not already running
+            if (!this.timerAnimationFrame) {
+                this.animateTimer();
             }
         }
         
-        // Check if time is up
         if (this.msLeft <= 0) {
-            clearInterval(this.timerInterval);
-            this.timerInterval = null;
             this.gameOver();
         }
+    }
+    
+    animateTimer() {
+        const now = performance.now();
+        const deltaTime = (now - this.lastTimerUpdate) / 1000;
+        this.lastTimerUpdate = now;
+        
+        // Smoothly interpolate current time towards target time
+        const smoothFactor = 0.3;
+        this.currentTimeLeft += (this.targetTimeLeft - this.currentTimeLeft) * smoothFactor;
+        
+        // Force redraw with current interpolated time
+        this.draw();
+        
+        // Continue animation
+        this.timerAnimationFrame = requestAnimationFrame(() => this.animateTimer());
     }
     
     updateScore(points) {
@@ -1569,25 +1668,6 @@ class AppleGame {
         // Reset timer values
         this.timeLeft = this.initialTime;
         this.msLeft = this.timeLeft * 1000;
-        
-        // Reset timer display
-        const minutes = Math.floor(this.timeLeft / 60);
-        const seconds = this.timeLeft % 60;
-        document.getElementById('timer').textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:00`;
-        
-        // Reset timer progress bar
-        this.timerProgress.style.width = '100%';
-        this.timerProgress.style.backgroundColor = '#4CAF50';
-        
-        // Clear any ongoing animations
-        this.animations = [];
-        this.particles = [];
-        
-        // Clear any ongoing tips
-        if (this.tipTimeout) {
-            clearTimeout(this.tipTimeout);
-            this.tipTimeout = null;
-        }
         
         // Create and show countdown overlay
         const countdownOverlay = document.createElement('div');
