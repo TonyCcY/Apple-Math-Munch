@@ -1065,4 +1065,60 @@ body {
 
 .home-button:hover {
     background-color: #1976D2;
+}
+
+/* Add these styles for the reset button */
+#resetButton {
+    grid-column: 1 / -1;
+    background-color: #ff9800;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background-color 0.3s, transform 0.2s;
+    margin: 4px auto;
+    width: fit-content;
+}
+
+#resetButton:hover {
+    background-color: #f57c00;
+    transform: scale(1.05);
+}
+
+#resetButton:active {
+    transform: scale(0.95);
+}
+
+#resetButton span {
+    font-size: 18px;
+}
+
+/* Update media queries for mobile */
+@media (max-width: 480px) {
+    #resetButton {
+        padding: 6px 12px;
+        font-size: 13px;
+    }
+    
+    #resetButton span {
+        font-size: 16px;
+    }
+}
+
+/* Update landscape layout */
+@media screen and (orientation: landscape) and (max-height: 480px) {
+    #game-info {
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    }
+    
+    #resetButton {
+        grid-column: auto;
+        margin: 0;
+    }
 } 

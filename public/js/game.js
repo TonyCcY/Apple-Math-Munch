@@ -144,6 +144,22 @@ class AppleGame {
             this.grid = this.createGrid();
             document.getElementById('score').textContent = '0';
         });
+
+        // Add touch event listeners
+        this.canvas.addEventListener('touchstart', this.handleTouchStart, false);
+        this.canvas.addEventListener('touchmove', this.handleTouchMove, false);
+        this.canvas.addEventListener('touchend', this.handleTouchEnd, false);
+        this.canvas.addEventListener('touchcancel', this.handleTouchEnd, false);
+
+        // Touch event handlers
+        this.touchPoints = {};
+
+        // Add reset button handler
+        document.getElementById('resetButton').addEventListener('click', () => {
+            if (confirm('Are you sure you want to reset the current game? Your progress will be lost.')) {
+                this.resetCurrentGame();
+            }
+        });
     }
     
     createGrid() {
@@ -1236,6 +1252,115 @@ class AppleGame {
             document.documentElement.setAttribute('data-theme', newTheme);
             localStorage.setItem('theme', newTheme);
         });
+    }
+
+    // Touch event handlers
+    handleTouchStart(event) {
+        event.preventDefault();
+        const touches = event.changedTouches;
+        
+        for (let i = 0; i < touches.length; i++) {
+            const touch = touches[i];
+            // Convert touch coordinates to canvas coordinates
+            const rect = this.canvas.getBoundingClientRect();
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            
+            // Store touch data using identifier as key
+            this.touchPoints[touch.identifier] = {
+                x: x,
+                y: y,
+                startX: x,
+                startY: y
+            };
+        }
+    }
+
+    handleTouchMove(event) {
+        event.preventDefault();
+        const touches = event.changedTouches;
+        
+        for (let i = 0; i < touches.length; i++) {
+            const touch = touches[i];
+            if (this.touchPoints[touch.identifier]) {
+                const rect = this.canvas.getBoundingClientRect();
+                this.touchPoints[touch.identifier].x = touch.clientX - rect.left;
+                this.touchPoints[touch.identifier].y = touch.clientY - rect.top;
+            }
+        }
+    }
+
+    handleTouchEnd(event) {
+        event.preventDefault();
+        const touches = event.changedTouches;
+        
+        for (let i = 0; i < touches.length; i++) {
+            const touch = touches[i];
+            // Clean up ended touch points
+            delete this.touchPoints[touch.identifier];
+        }
+    }
+
+    // In your game update function, you can now handle multiple touch points
+    update() {
+        // Handle all active touch points
+        Object.values(this.touchPoints).forEach(touch => {
+            // Handle each touch point here
+            // Example: check collisions, trigger actions, etc.
+            this.handleInteraction(touch.x, touch.y);
+        });
+    }
+
+    // Helper function to handle interactions
+    handleInteraction(x, y) {
+        // Add your touch interaction logic here
+        // Example: checking if touch coordinates intersect with game objects
+    }
+
+    // Add this new method
+    resetCurrentGame() {
+        // Stop auto-solve if it's running
+        this.stopAutoSolve();
+        
+        // Reset the grid
+        this.grid = this.createGrid();
+        
+        // Reset the score for current game only
+        this.score = 0;
+        document.getElementById('score').textContent = '0';
+        
+        // Reset the timer to initial value
+        clearInterval(this.timerInterval);
+        this.timeLeft = this.initialTime;
+        this.msLeft = this.timeLeft * 1000;
+        
+        // Update timer display
+        const minutes = Math.floor(this.timeLeft / 60);
+        const seconds = this.timeLeft % 60;
+        document.getElementById('timer').textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:00`;
+        
+        // Reset timer progress bar
+        this.timerProgress.style.width = '100%';
+        this.timerProgress.style.backgroundColor = '#4CAF50';
+        
+        // Clear any ongoing animations
+        this.animations = [];
+        this.particles = [];
+        
+        // Clear any ongoing tips
+        if (this.tipTimeout) {
+            clearTimeout(this.tipTimeout);
+            this.tipTimeout = null;
+        }
+        
+        // Start the game timer again
+        this.startGameTimer();
+        
+        // Redraw the game
+        this.draw();
+        
+        // Play reset sound
+        this.audio.play('select');
     }
 }
 
