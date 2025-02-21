@@ -1498,7 +1498,6 @@ class AppleGame {
         // Create and animate score popup
         const scorePopup = document.createElement('div');
         scorePopup.className = 'score-popup';
-        console.log(points);
         scorePopup.textContent = `+${points}`;
         
         const container = document.querySelector('.score-container');
