@@ -9,7 +9,7 @@ class AppleGame {
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
         this.score = 0;
-        this.timeLeft = 60*3;
+        this.timeLeft = 60*2;
         this.isDrawing = false;
         this.selectionStart = { x: 0, y: 0 };
         this.selectionEnd = { x: 0, y: 0 };
@@ -92,7 +92,7 @@ class AppleGame {
         
         // Add timer progress elements
         this.timerProgress = document.querySelector('.timer-progress');
-        this.initialTime = 60 * 3; // 3 minutes
+        this.initialTime = 60 * 2;
         this.timeLeft = this.initialTime;
         this.lastUpdate = 0;
         this.msLeft = 0;
