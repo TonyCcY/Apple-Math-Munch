@@ -112,6 +112,19 @@ class AppleGame {
             document.getElementById('tipButton').addEventListener('click', () => this.showTip());
             document.getElementById('autoTipButton').addEventListener('click', () => this.showAutoTip());
             document.getElementById('continuousAutoButton').addEventListener('click', () => this.toggleContinuousAutoSolve());
+            
+            // Add regen debug button
+            const regenButton = document.createElement('button');
+            regenButton.textContent = 'Trigger Regen';
+            regenButton.className = 'debug-button';
+            regenButton.addEventListener('click', () => {
+                // Force regenerate grid regardless of valid moves
+                const originalHasValidMoves = this.hasValidMoves;
+                this.hasValidMoves = () => false; // Temporarily override to force regeneration
+                this.regenerateGrid();
+                this.hasValidMoves = originalHasValidMoves; // Restore original function
+            });
+            document.getElementById('debug-controls').appendChild(regenButton);
         }
         
         // Initialize audio manager
@@ -353,54 +366,73 @@ class AppleGame {
         
         if (!hasApples) return false;
         
-        // Check rectangular areas
+        // Check all possible rectangular selections
         for (let startY = 0; startY < this.gridHeight; startY++) {
             for (let startX = 0; startX < this.gridWidth; startX++) {
-                // Skip if starting cell is empty
                 if (this.grid[startY][startX].value === null) continue;
-                
-                // Check rectangles up to 4x4 size
+
                 for (let height = 1; height <= 4 && startY + height <= this.gridHeight; height++) {
                     for (let width = 1; width <= 4 && startX + width <= this.gridWidth; width++) {
                         let sum = 0;
-                        
+                        let hasNonNull = false;
+
                         // Calculate sum for current rectangle
                         for (let y = startY; y < startY + height; y++) {
                             for (let x = startX; x < startX + width; x++) {
                                 if (this.grid[y][x].value !== null) {
                                     sum += this.grid[y][x].value;
-                                    if (sum > 10) break; // Optimization: skip if sum exceeds 10
+                                    hasNonNull = true;
                                 }
                             }
-                            if (sum > 10) break;
                         }
-                        
-                        if (sum === 10) {
+
+                        if (hasNonNull && sum === 10) {
                             return true;
                         }
                     }
                 }
             }
         }
-        
+
         return false;
     }
     
     draw() {
-        // Clear only the canvas area
+        // Clear canvas
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Draw grid
+        // Keep track of cells being animated
+        const animatingCells = new Set();
+        this.animations.forEach(anim => {
+            animatingCells.add(`${anim.x},${anim.y}`);
+        });
+        
+        // Draw grid (skip cells that are being animated)
         for (let y = 0; y < this.gridHeight; y++) {
             for (let x = 0; x < this.gridWidth; x++) {
                 const cell = this.grid[y][x];
-                
-                // Skip drawing if cell is empty
-                if (cell.value === null) continue;
-                
-                this.drawApple(x, y, cell.value, cell.selected, cell.hint);
+                // Only draw if cell has value and is not being animated
+                if (cell.value !== null && !animatingCells.has(`${x},${y}`)) {
+                    this.drawApple(x, y, cell.value, cell.selected, cell.hint);
+                }
             }
         }
+        
+        // Draw animations
+        this.animations.forEach(anim => {
+            const progress = (performance.now() - anim.startTime) / anim.duration;
+            
+            if (anim.type === 'fade-out') {
+                const alpha = 1 - progress;
+                this.drawApple(anim.x, anim.y, anim.value, false, false, 1, alpha);
+            } else if (anim.type === 'fade-in') {
+                // Sync the alpha with the scale animation
+                const scale = this.easeOutBack(progress);
+                const alpha = progress;
+                // Start invisible and small, then scale up with bounce
+                this.drawApple(anim.x, anim.y, anim.value, false, false, scale, alpha);
+            }
+        });
         
         // Draw particles
         this.particles.forEach(particle => {
@@ -434,12 +466,13 @@ class AppleGame {
         
         this.ctx.save();
         this.ctx.translate(centerX, centerY);
-        this.ctx.scale(scale, scale);
+        
+        // Apply global alpha
         this.ctx.globalAlpha = alpha;
         
         // Draw apple image or fallback circle
         if (this.appleImageLoaded) {
-            const size = this.cellSize * 0.8; // Slightly smaller than cell
+            const size = this.cellSize * 0.8 * scale; // Apply scale to size
             this.ctx.drawImage(
                 this.appleImage,
                 -size/2,
@@ -449,19 +482,29 @@ class AppleGame {
             );
         } else {
             this.ctx.beginPath();
+            this.ctx.scale(scale, scale); // Apply scale for fallback circle
             this.ctx.arc(0, 0, this.cellSize * 0.4, 0, Math.PI * 2);
             this.ctx.fillStyle = selected ? '#ff6666' : (hint ? '#ffff00' : '#ff0000');
             this.ctx.fill();
         }
         
-        // Draw number with drop shadow
+        // Reset transform for text to apply scale separately
+        this.ctx.restore();
+        this.ctx.save();
+        this.ctx.translate(centerX, centerY);
+        this.ctx.scale(scale, scale);
+        
+        // Keep alpha for text
+        this.ctx.globalAlpha = alpha;
+        
+        // Draw number
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
         this.ctx.font = `bold ${this.cellSize * 0.4}px Arial`;
         
         // Draw shadow
         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-        this.ctx.fillText(value, 2, 2); // Offset for shadow
+        this.ctx.fillText(value, 2, 2);
         
         // Draw main text
         this.ctx.fillStyle = selected ? '#ffffff' : (hint ? '#000000' : '#ffffff');
@@ -712,8 +755,11 @@ class AppleGame {
             x, y, value,
             startTime,
             duration,
-            scale: 1,
-            alpha: 1
+            type: 'pop-out',
+            update: (currentTime) => {
+                const progress = (currentTime - startTime) / duration;
+                return progress < 1;
+            }
         });
         
         if (!this.isAnimating) {
@@ -727,19 +773,23 @@ class AppleGame {
         
         // Update animations
         this.animations = this.animations.filter(anim => {
-            const progress = Math.min(1, (currentTime - anim.startTime) / anim.duration);
-            anim.scale = 1 + progress * 0.3;
-            anim.alpha = 1 - progress;
-            return progress < 1;
+            const progress = (currentTime - anim.startTime) / anim.duration;
+            if (progress >= 1) {
+                if (anim.type === 'fade-in') {
+                    this.grid[anim.y][anim.x].value = anim.value;
+                }
+                return false;
+            }
+            return true;
         });
         
-        // Update particles with gravity
+        // Update particles
         this.particles = this.particles.filter(particle => {
             const progress = (currentTime - particle.startTime) / particle.duration;
             if (progress >= 1) return false;
             
             // Update velocity with gravity
-            particle.vy += particle.gravity;
+            particle.vy += particle.gravity || 0.2;
             
             // Update position
             particle.x += particle.vx;
@@ -747,10 +797,6 @@ class AppleGame {
             
             // Shrink size
             particle.size *= 0.97;
-            
-            // Add fade out effect with original color
-            const [r, g, b] = this.hexToRgb(particle.color);
-            particle.color = `rgba(${r}, ${g}, ${b}, ${1 - progress})`;
             
             return particle.size > 0.5;
         });
@@ -762,16 +808,6 @@ class AppleGame {
         } else {
             this.isAnimating = false;
         }
-    }
-    
-    // Helper function to convert hex color to RGB
-    hexToRgb(hex) {
-        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-        return result ? [
-            parseInt(result[1], 16),
-            parseInt(result[2], 16),
-            parseInt(result[3], 16)
-        ] : [255, 0, 0]; // Default to red if conversion fails
     }
     
     showPopup(message, autoDismiss = false) {
@@ -796,13 +832,16 @@ class AppleGame {
     }
     
     regenerateGrid() {
-        // Store old grid values for pop-out animation
+        if (this.hasValidMoves()) {
+            return;
+        }
+
+        // Store old grid values
         const oldGrid = [];
         for (let y = 0; y < this.gridHeight; y++) {
             oldGrid[y] = [];
             for (let x = 0; x < this.gridWidth; x++) {
                 oldGrid[y][x] = this.grid[y][x].value;
-                // Clear the grid position
                 this.grid[y][x] = {
                     value: null,
                     selected: false,
@@ -810,39 +849,87 @@ class AppleGame {
                 };
             }
         }
-        
-        // Clear any ongoing animations and timeouts
+
+        // Clear any ongoing animations
         this.animations = [];
-        this.particles = [];
         if (this.tipTimeout) {
             clearTimeout(this.tipTimeout);
             this.tipTimeout = null;
         }
-        
-        // Start pop-out animations for all old apples
+
+        // Calculate center point for ripple
+        const centerX = Math.floor(this.gridWidth / 2);
+        const centerY = Math.floor(this.gridHeight / 2);
+
+        // Calculate max distance for delay normalization
+        const maxDistance = Math.sqrt(
+            Math.pow(Math.max(centerX, this.gridWidth - centerX), 2) +
+            Math.pow(Math.max(centerY, this.gridHeight - centerY), 2)
+        );
+
+        // Start fade out animations with ripple effect
         for (let y = 0; y < this.gridHeight; y++) {
             for (let x = 0; x < this.gridWidth; x++) {
                 if (oldGrid[y][x] !== null) {
-                    this.startPopOutAnimation(x, y, oldGrid[y][x]);
+                    // Calculate distance from center for ripple effect
+                    const distance = Math.sqrt(
+                        Math.pow(x - centerX, 2) + 
+                        Math.pow(y - centerY, 2)
+                    );
+                    
+                    // Normalize distance to get delay (0-200ms)
+                    const delay = (distance / maxDistance) * 200;
+                    
+                    setTimeout(() => {
+                        this.startFadeOutAnimation(x, y, oldGrid[y][x]);
+                    }, delay);
                 }
             }
         }
-        
-        // After pop-out animation, start pop-in animation
-        setTimeout(() => {
-            // Generate new values and start pop-in animations
+
+        // Generate new grid values
+        const generateValidGrid = () => {
+            const newGrid = [];
             for (let y = 0; y < this.gridHeight; y++) {
+                newGrid[y] = [];
                 for (let x = 0; x < this.gridWidth; x++) {
-                    const value = Math.floor(Math.random() * 9) + 1;
-                    this.startPopInAnimation(x, y, value);
+                    newGrid[y][x] = {
+                        value: Math.floor(Math.random() * 9) + 1,
+                        selected: false,
+                        hint: false
+                    };
                 }
             }
-        }, 500); // Wait for pop-out animation to complete
-        
-        this.showPopup("No more possible moves! Grid has been regenerated.", true);
+            return this.findCombination(newGrid) !== null ? newGrid : generateValidGrid();
+        };
+
+        // After fade out, start fade in animations
+        setTimeout(() => {
+            const newGrid = generateValidGrid();
+            
+            // Start fade in animations with ripple effect
+            for (let y = 0; y < this.gridHeight; y++) {
+                for (let x = 0; x < this.gridWidth; x++) {
+                    this.grid[y][x] = newGrid[y][x];
+                    
+                    // Calculate distance from center for ripple effect
+                    const distance = Math.sqrt(
+                        Math.pow(x - centerX, 2) + 
+                        Math.pow(y - centerY, 2)
+                    );
+                    
+                    // Normalize distance to get delay (0-300ms)
+                    const delay = (distance / maxDistance) * 300;
+                    
+                    setTimeout(() => {
+                        this.startFadeInAnimation(x, y, newGrid[y][x].value);
+                    }, delay);
+                }
+            }
+        }, 500); // Wait for fade out to complete
     }
     
-    startPopOutAnimation(x, y, value) {
+    startFadeOutAnimation(x, y, value) {
         const startTime = performance.now();
         const duration = 300;
         
@@ -850,55 +937,28 @@ class AppleGame {
             x, y, value,
             startTime,
             duration,
-            type: 'pop-out',
-            update: (currentTime) => {
-                const progress = (currentTime - startTime) / duration;
-                return progress < 1;
-            }
+            type: 'fade-out'
         });
         
-        // Create particles for pop effect
-        const numParticles = 8;
-        for (let i = 0; i < numParticles; i++) {
-            const angle = (i / numParticles) * Math.PI * 2;
-            this.particles.push({
-                x: x * this.cellSize + this.cellSize/2,
-                y: y * this.cellSize + this.cellSize/2,
-                vx: Math.cos(angle) * 5,
-                vy: Math.sin(angle) * 5,
-                size: 6,
-                startTime,
-                duration: 500,
-                color: '#ff0000'
-            });
-        }
-        
-        if (this.animations.length === 1) {
+        if (!this.isAnimating) {
+            this.isAnimating = true;
             this.animationLoop();
         }
     }
     
-    startPopInAnimation(x, y, value) {
+    startFadeInAnimation(x, y, value) {
         const startTime = performance.now();
-        const duration = 300;
+        const duration = 800; // Increased duration for smoother bounce
         
         this.animations.push({
             x, y, value,
             startTime,
             duration,
-            type: 'pop-in',
-            update: (currentTime) => {
-                const progress = (currentTime - startTime) / duration;
-                if (progress >= 1) {
-                    // Set the final value when animation completes
-                    this.grid[y][x].value = value;
-                    return false;
-                }
-                return true;
-            }
+            type: 'fade-in'
         });
         
-        if (this.animations.length === 1) {
+        if (!this.isAnimating) {
+            this.isAnimating = true;
             this.animationLoop();
         }
     }
@@ -1389,6 +1449,13 @@ class AppleGame {
         
         // Redraw the game
         this.draw();
+    }
+
+    // Add easeOutBack function
+    easeOutBack(x) {
+        const c1 = 3; // Increased bounce amount
+        const c3 = c1 + 1;
+        return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
     }
 }
 
