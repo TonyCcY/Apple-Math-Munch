@@ -27,9 +27,12 @@ class AppleGame {
         // Add timer height to canvas calculations
         this.timerHeight = 24;
         
+        // Add score margin to canvas height
+        const scoreMargin = 40;
+        this.canvas.height = (this.gridHeight * this.cellSize) + this.timerHeight + scoreMargin;
+        
         // Set canvas size
         this.canvas.width = this.gridWidth * this.cellSize;
-        this.canvas.height = this.gridHeight * this.cellSize + this.timerHeight; // Add timer height
         
         // Initialize grid
         this.grid = this.createGrid();
@@ -300,7 +303,6 @@ class AppleGame {
             this.score = 0;
             this.timeLeft = this.initialTime;
             this.grid = this.createGrid();
-            document.getElementById('score').textContent = '0';
         });
 
         // Add touch event listeners
@@ -324,6 +326,8 @@ class AppleGame {
         this.targetTimeLeft = this.initialTime;
         this.currentTimeLeft = this.initialTime;
         this.timerAnimationFrame = null;
+
+        this.scorePopups = [];
     }
     
     createGrid() {
@@ -388,6 +392,7 @@ class AppleGame {
     
     getMousePos(e) {
         const rect = this.canvas.getBoundingClientRect();
+        const scoreMargin = 40; // Same margin as used in draw
         
         // Get the touch/mouse coordinates
         let clientX, clientY;
@@ -403,9 +408,9 @@ class AppleGame {
         const scaleX = this.canvas.width / rect.width;
         const scaleY = (this.canvas.height - this.timerHeight) / rect.height;
         
-        // Get position within the canvas
+        // Get position within the canvas and adjust for score margin
         const x = (clientX - rect.left) * scaleX;
-        const y = (clientY - rect.top) * scaleY;
+        const y = ((clientY - rect.top) * scaleY) - scoreMargin; // Subtract score margin
         
         // Convert to grid coordinates and ensure within grid bounds
         const gridX = Math.max(0, Math.min(this.gridWidth - 1, Math.floor(x / this.cellSize)));
@@ -591,12 +596,47 @@ class AppleGame {
         // Clear canvas
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Save context state
+        // Draw score display at the top
+        const scoreText = `Score: ${this.score}`;
+        this.ctx.font = 'bold 24px Arial';
+        const scoreWidth = this.ctx.measureText(scoreText).width;
+        const scorePadding = 15;
+        const scoreHeight = 36;
+        const scoreX = (this.canvas.width - (scoreWidth + scorePadding * 2)) / 2;
+        const scoreY = 5;
+
+        // Draw semi-transparent background
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        this.ctx.beginPath();
+        this.ctx.roundRect(
+            scoreX, 
+            scoreY, 
+            scoreWidth + scorePadding * 2,
+            scoreHeight,
+            8  // border radius
+        );
+        this.ctx.fill();
+
+        // Draw score text with shadow
+        this.ctx.textAlign = 'left';
+        this.ctx.textBaseline = 'middle';
+        
+        // Draw text shadow
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        this.ctx.fillText(scoreText, scoreX + scorePadding + 1, scoreY + scoreHeight/2 + 1);
+        
+        // Draw main text
+        this.ctx.fillStyle = 'white';
+        this.ctx.fillText(scoreText, scoreX + scorePadding, scoreY + scoreHeight/2);
+
+        // Save context for grid drawing
         this.ctx.save();
         
-        // Move context up to leave space for timer
-        this.ctx.translate(0, 0);
-        
+        // Translate for grid
+        const scoreMargin = 40;
+        this.ctx.translate(0, scoreMargin);
+
+        // Draw grid and rest of game elements
         // Keep track of cells being animated
         const animatingCells = new Set();
         this.animations.forEach(anim => {
@@ -607,7 +647,6 @@ class AppleGame {
         for (let y = 0; y < this.gridHeight; y++) {
             for (let x = 0; x < this.gridWidth; x++) {
                 const cell = this.grid[y][x];
-                // Only draw if cell has value and is not being animated
                 if (cell.value !== null && !animatingCells.has(`${x},${y}`)) {
                     this.drawApple(x, y, cell.value, cell.selected, cell.hint);
                 }
@@ -698,6 +737,36 @@ class AppleGame {
         // Draw text
         this.ctx.fillStyle = 'white';
         this.ctx.fillText(timeText, this.canvas.width / 2, this.canvas.height - this.timerHeight / 2);
+
+        // Draw score popups
+        if (this.scorePopups) {
+            this.scorePopups = this.scorePopups.filter(popup => {
+                const progress = (performance.now() - popup.startTime) / popup.duration;
+                if (progress >= 1) return false;
+
+                // Move up from the score display
+                const y = popup.y - (progress * 30); // Reduced movement distance
+                const alpha = 1 - progress; // Fade out
+
+                this.ctx.save();
+                this.ctx.textAlign = 'center';
+                this.ctx.textBaseline = 'middle';
+                this.ctx.font = 'bold 24px Arial';
+                
+                // Draw shadow
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                this.ctx.globalAlpha = alpha;
+                this.ctx.fillText(`+${popup.points}`, popup.x + 1, y + 1);
+                
+                // Draw text
+                this.ctx.fillStyle = '#4CAF50';
+                this.ctx.globalAlpha = alpha;
+                this.ctx.fillText(`+${popup.points}`, popup.x, y);
+                
+                this.ctx.restore();
+                return true;
+            });
+        }
     }
     
     drawApple(x, y, value, selected, hint, scale = 1, alpha = 1) {
@@ -809,7 +878,6 @@ class AppleGame {
         this.score = 0;
         this.timeLeft = this.initialTime;
         this.grid = this.createGrid();
-        document.getElementById('score').textContent = '0';
         
         // Reset tip button texts
         document.getElementById('tipButton').textContent = `Show Tip (${this.tipsLeft} left)`;
@@ -829,7 +897,6 @@ class AppleGame {
     startGame() {
         // Reset game state
         this.score = 0;
-        document.getElementById('score').textContent = '0';
         this.grid = this.createGrid();
         
         // Show game page
@@ -1487,26 +1554,37 @@ class AppleGame {
     
     updateScore(points) {
         this.score += points;
-        const scoreElement = document.getElementById('score');
-        scoreElement.textContent = this.score;
         
-        // Add pulse animation
-        scoreElement.classList.remove('pulse');
-        void scoreElement.offsetWidth; // Trigger reflow
-        scoreElement.classList.add('pulse');
+        // Create and animate score popup near the score display
+        const startTime = performance.now();
+        const duration = 800;
         
-        // Create and animate score popup
-        const scorePopup = document.createElement('div');
-        scorePopup.className = 'score-popup';
-        scorePopup.textContent = `+${points}`;
+        // Calculate position near the score display
+        const scoreText = `Score: ${this.score}`;
+        this.ctx.font = 'bold 24px Arial';
+        const scoreWidth = this.ctx.measureText(scoreText).width;
+        const scorePadding = 15;
+        const scoreHeight = 36;
+        const scoreX = (this.canvas.width - (scoreWidth + scorePadding * 2)) / 2;
+        const scoreY = 5;
         
-        const container = document.querySelector('.score-container');
-        container.appendChild(scorePopup);
+        // Position popup near the score display
+        const popupAnimation = {
+            points,
+            startTime,
+            duration,
+            x: this.canvas.width / 2,  // Center horizontally
+            y: scoreY + scoreHeight + 10  // Just below the score display
+        };
         
-        // Remove popup after animation
-        setTimeout(() => {
-            scorePopup.remove();
-        }, 800);
+        this.scorePopups = this.scorePopups || [];
+        this.scorePopups.push(popupAnimation);
+        
+        // Start animation loop if not already running
+        if (!this.isAnimating) {
+            this.isAnimating = true;
+            this.animationLoop();
+        }
     }
     
     clearHighScore() {
@@ -1663,7 +1741,6 @@ class AppleGame {
         
         // Reset the score for current game only
         this.score = 0;
-        document.getElementById('score').textContent = '0';
         
         // Clear any ongoing timer
         if (this.timerInterval) {

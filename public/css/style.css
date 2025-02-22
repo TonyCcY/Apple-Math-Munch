@@ -394,67 +394,6 @@ h1, h2, h3 {
     box-sizing: border-box;
 }
 
-/* Add these styles for score animation */
-.score-container {
-    grid-column: 1; /* First column */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 30px;
-    color: var(--text-color);
-}
-
-.score-text {
-    display: inline-block;
-    color: var(--text-color);
-}
-
-.score-popup {
-    position: absolute;
-    left: 50%;
-    color: var(--text-color);
-    font-weight: bold;
-    pointer-events: none;
-    animation: scorePopup 0.8s ease-out forwards;
-    opacity: 0;
-}
-
-@keyframes scorePopup {
-    0% {
-        transform: translate(-50%, 0);
-        opacity: 0;
-    }
-    20% {
-        opacity: 1;
-    }
-    100% {
-        transform: translate(-50%, -20px);
-        opacity: 0;
-    }
-}
-
-/* Update the score span style */
-#score {
-    display: inline-block;
-    transition: transform 0.2s ease;
-}
-
-#score.pulse {
-    animation: scorePulse 0.3s ease;
-}
-
-@keyframes scorePulse {
-    0% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(1.2);
-    }
-    100% {
-        transform: scale(1);
-    }
-}
-
 /* Add orientation-specific styles */
 @media screen and (orientation: landscape) {
     .canvas-container {
