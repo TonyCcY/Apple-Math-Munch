@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="192" height="192" viewBox="0 0 192 192" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background -->
+    <circle cx="96" cy="96" r="88" fill="#4CAF50"/>
+    
+    <!-- Apple body -->
+    <circle cx="96" cy="100" r="60" fill="#ff0000"/>
+    
+    <!-- Stem and leaf -->
+    <path d="M 96 40 C 96 40, 90 52, 102 52" stroke="#654321" stroke-width="6" fill="none"/>
+    <path d="M 102 52 C 102 52, 115 45, 108 60" stroke="#228B22" stroke-width="6" fill="none"/>
+    
+    <!-- Highlight -->
+    <circle cx="76" cy="80" r="20" fill="rgba(255,255,255,0.3)"/>
+</svg> 

@@ -17,26 +17,29 @@ This project including this readme file was generated in one night using [Cursor
 - Develops quick mental math skills
 - Simple touch/mouse controls suitable for children
 - Visual feedback and animations keep kids interested
-- Progressive difficulty as they improve
+- Choice of different fruits to maintain interest
 - No ads or in-app purchases
 
 ## Features
 
 - Simple and intuitive gameplay
 - Touch and mouse support
+- Multiple fruit choices (Apple, Orange, Pear, Melon, Grape, Mango)
 - Responsive design for all devices
 - Progressive Web App (PWA) support
 - Local high score tracking
 - Smooth animations and effects
+- Dark/Light theme support
 - Debug mode for testing
 
 ## How to Play
 
-1. Draw rectangles to select apples
-2. Selected apples must sum to 10
-3. Each successful match gives you points equal to the number of apples matched
-4. You have 3 minutes to score as high as possible
+1. Draw rectangles to select fruits
+2. Selected fruits must sum to 10
+3. Each match gives you 1 point per fruit
+4. You have 2 minutes to score as high as possible
 5. Game ends when time runs out
+6. Try to beat your high score!
 
 ## Getting Started
 
@@ -79,6 +82,7 @@ This will enable:
 - Show Tip button
 - Auto Solve feature
 - Auto Run mode
+- Grid regeneration testing
 
 ## Technical Details
 
@@ -87,6 +91,7 @@ This will enable:
 - Express.js for serving the game
 - Responsive CSS Grid layout
 - Service Worker for offline support
+- Local Storage for game preferences and high scores
 
 ## Browser Support
 

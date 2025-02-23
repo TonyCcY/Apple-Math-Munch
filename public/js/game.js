@@ -1481,8 +1481,11 @@ class AppleGame {
         const maxAvailableHeight = viewportHeight - gameInfoHeight - 40; // 40px for padding
         const maxAvailableWidth = viewportWidth - 40; // 40px for padding
         
-        // Calculate the grid aspect ratio (including timer bar)
-        const gridAspectRatio = this.gridWidth / (this.gridHeight + this.timerHeight/this.cellSize);
+        // Calculate the total grid height including score margin and timer
+        const totalGridHeight = this.gridHeight + (this.timerHeight / this.cellSize) + (40 / this.cellSize); // Add score margin
+        
+        // Calculate the grid aspect ratio
+        const gridAspectRatio = this.gridWidth / totalGridHeight;
         
         // Calculate the maximum size that maintains the grid aspect ratio
         let newWidth, newHeight;
@@ -1498,7 +1501,7 @@ class AppleGame {
         
         // Calculate the cell size
         const cellSizeByWidth = Math.floor(newWidth / this.gridWidth);
-        const cellSizeByHeight = Math.floor(newHeight / (this.gridHeight + this.timerHeight/this.cellSize));
+        const cellSizeByHeight = Math.floor(newHeight / totalGridHeight);
         const newCellSize = Math.min(
             this.maxCellSize,
             Math.max(this.minCellSize, Math.min(cellSizeByWidth, cellSizeByHeight))
@@ -1507,12 +1510,20 @@ class AppleGame {
         // Update cell size and canvas dimensions if changed
         if (newCellSize !== this.cellSize) {
             this.cellSize = newCellSize;
+            
+            // Calculate canvas dimensions including space for timer and score
             this.canvas.width = this.gridWidth * this.cellSize;
-            this.canvas.height = (this.gridHeight * this.cellSize) + this.timerHeight;
+            this.canvas.height = (this.gridHeight * this.cellSize) + this.timerHeight + 40; // Add score margin
             
             // Update container style to center the canvas
             container.style.width = `${this.canvas.width}px`;
             container.style.height = `${this.canvas.height}px`;
+            
+            // Update reset button position
+            if (this.resetButton) {
+                this.resetButton.x = this.canvas.width - 40;
+                this.resetButton.y = 20;
+            }
             
             this.draw();
         }
