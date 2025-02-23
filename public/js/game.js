@@ -8,6 +8,44 @@ class AppleGame {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
+        
+        // Initialize arrays and collections first
+        this.animations = [];
+        this.particles = [];
+        this.fallingApples = [];
+        this.scorePopups = [];
+        this.touchPoints = {};
+        
+        // Add confirmation dialog properties
+        this.confirmDialog = {
+            isVisible: false,
+            message: '',
+            onConfirm: null,
+            width: 300,
+            height: 150,
+            buttons: {
+                yes: {
+                    text: 'Yes',
+                    isHovered: false
+                },
+                no: {
+                    text: 'No',
+                    isHovered: false
+                }
+            }
+        };
+        
+        // Add reset button properties
+        this.resetButton = {
+            x: 0,
+            y: 10,
+            width: 80,
+            height: 30,
+            text: '↺ Reset',
+            isHovered: false
+        };
+        
+        // Initialize other properties
         this.score = 0;
         this.timeLeft = 60*2;
         this.isDrawing = false;
@@ -22,23 +60,19 @@ class AppleGame {
         this.gridHeight = 10;
         this.minCellSize = 30;
         this.maxCellSize = 60;
-        this.cellSize = this.maxCellSize; // Start with maximum size
-        
-        // Add timer height to canvas calculations
+        this.cellSize = this.maxCellSize;
         this.timerHeight = 24;
-        
-        // Add score margin to canvas height
-        const scoreMargin = 40;
-        this.canvas.height = (this.gridHeight * this.cellSize) + this.timerHeight + scoreMargin;
-        
-        // Set canvas size
-        this.canvas.width = this.gridWidth * this.cellSize;
         
         // Initialize grid
         this.grid = this.createGrid();
         
-        // Bind events
+        // Handle resize to set initial dimensions
+        this.handleResize();
+        
+        // Add event listeners
         this.bindEvents();
+        window.addEventListener('resize', () => this.handleResize());
+        this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         
         // Initialize high score from localStorage
         this.highScore = parseInt(localStorage.getItem('highScore')) || 0;
@@ -52,17 +86,6 @@ class AppleGame {
         
         // Add tip button handler
         document.getElementById('tipButton').addEventListener('click', () => this.showTip());
-        
-        this.animations = [];
-        this.particles = [];  // Add this for particle effects
-        
-        // Add popup handler
-        document.getElementById('popup-close').addEventListener('click', () => this.hidePopup());
-        
-        // Add auto tip button handler
-        document.getElementById('autoTipButton').addEventListener('click', () => this.showAutoTip());
-        
-        this.fallingApples = []; // Add this for falling apple animations
         
         // Add continuous auto-solve button handler
         document.getElementById('continuousAutoButton').addEventListener('click', () => this.toggleContinuousAutoSolve());
@@ -92,10 +115,6 @@ class AppleGame {
         
         // Add touch event handling
         this.bindTouchEvents();
-        
-        // Add resize handler
-        this.handleResize();
-        window.addEventListener('resize', () => this.handleResize());
         
         // Keep these timer-related properties
         this.initialTime = 60 * 2;
@@ -314,45 +333,11 @@ class AppleGame {
         // Touch event handlers
         this.touchPoints = {};
 
-        // Add reset button properties
-        this.resetButton = {
-            x: 0, // Will be set in handleResize
-            y: 10,
-            width: 80,
-            height: 30,
-            text: '↺ Reset',
-            isHovered: false
-        };
-
-        // Add mouse move handler for button hover effect
-        this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
-
         // Add timer animation properties
         this.lastTimerUpdate = 0;
         this.targetTimeLeft = this.initialTime;
         this.currentTimeLeft = this.initialTime;
         this.timerAnimationFrame = null;
-
-        this.scorePopups = [];
-
-        // Add confirmation dialog properties
-        this.confirmDialog = {
-            isVisible: false,
-            message: '',
-            onConfirm: null,
-            width: 300,
-            height: 150,
-            buttons: {
-                yes: {
-                    text: 'Yes',
-                    isHovered: false
-                },
-                no: {
-                    text: 'No',
-                    isHovered: false
-                }
-            }
-        };
     }
     
     createGrid() {
@@ -449,6 +434,11 @@ class AppleGame {
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
 
+        // Block all interactions during countdown
+        if (this.isCountingDown) {
+            return;
+        }
+
         if (this.confirmDialog.isVisible) {
             Object.entries(this.confirmDialog.buttons).forEach(([type, button]) => {
                 if (button.bounds &&
@@ -484,9 +474,9 @@ class AppleGame {
         this.isDrawing = true;
         const pos = this.getMousePos(e);
         this.selectionStart = pos;
-        this.selectionEnd = { ...pos }; // Set end position same as start
+        this.selectionEnd = { ...pos };
         this.clearSelection();
-        this.updateSelection(); // Add this to immediately select the cell under cursor
+        this.updateSelection();
         this.draw();
         this.audio.play('select');
     }
@@ -495,6 +485,11 @@ class AppleGame {
         const rect = this.canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
+
+        // Block selection during countdown
+        if (this.isCountingDown) {
+            return;
+        }
 
         if (this.confirmDialog.isVisible) {
             // Check hover state for dialog buttons
@@ -1595,65 +1590,50 @@ class AppleGame {
     }
     
     handleResize() {
-        // Get the container and game info dimensions
+        // Get the container dimensions
         const container = document.querySelector('.canvas-container');
-        const gameInfo = document.getElementById('game-info');
-        const gameInfoHeight = gameInfo.offsetHeight;
         
         // Get viewport dimensions
         const viewportHeight = window.innerHeight;
         const viewportWidth = window.innerWidth;
         
-        // Calculate maximum available space
-        const maxAvailableHeight = viewportHeight - gameInfoHeight - 40; // 40px for padding
-        const maxAvailableWidth = viewportWidth - 40; // 40px for padding
+        // Calculate the total grid height including timer and score area
+        const scoreAndTimerSpace = this.timerHeight + 40; // 40px for score
         
-        // Calculate the total grid height including score margin and timer
-        const totalGridHeight = this.gridHeight + (this.timerHeight / this.cellSize) + (40 / this.cellSize); // Add score margin
+        // Calculate the maximum cell size that fits the viewport
+        const maxCellByWidth = Math.floor(viewportWidth / this.gridWidth);
+        const maxCellByHeight = Math.floor((viewportHeight - scoreAndTimerSpace) / this.gridHeight);
         
-        // Calculate the grid aspect ratio
-        const gridAspectRatio = this.gridWidth / totalGridHeight;
-        
-        // Calculate the maximum size that maintains the grid aspect ratio
-        let newWidth, newHeight;
-        if (maxAvailableWidth / maxAvailableHeight > gridAspectRatio) {
-            // Height limited
-            newHeight = maxAvailableHeight;
-            newWidth = newHeight * gridAspectRatio;
-        } else {
-            // Width limited
-            newWidth = maxAvailableWidth;
-            newHeight = newWidth / gridAspectRatio;
-        }
-        
-        // Calculate the cell size
-        const cellSizeByWidth = Math.floor(newWidth / this.gridWidth);
-        const cellSizeByHeight = Math.floor(newHeight / totalGridHeight);
-        const newCellSize = Math.min(
-            this.maxCellSize,
-            Math.max(this.minCellSize, Math.min(cellSizeByWidth, cellSizeByHeight))
+        // Choose the cell size that maximizes screen usage
+        let newCellSize = Math.min(
+            this.maxCellSize * 3, // Increased maximum size even more
+            Math.max(
+                this.minCellSize,
+                Math.min(maxCellByWidth, maxCellByHeight) // Use Math.min to maintain aspect ratio
+            )
         );
         
-        // Update cell size and canvas dimensions if changed
-        if (newCellSize !== this.cellSize) {
-            this.cellSize = newCellSize;
-            
-            // Calculate canvas dimensions including space for timer and score
-            this.canvas.width = this.gridWidth * this.cellSize;
-            this.canvas.height = (this.gridHeight * this.cellSize) + this.timerHeight + 40; // Add score margin
-            
-            // Update container style to center the canvas
-            container.style.width = `${this.canvas.width}px`;
-            container.style.height = `${this.canvas.height}px`;
-            
-            // Update reset button position
-            if (this.resetButton) {
-                this.resetButton.x = this.canvas.width - this.resetButton.width - 10;
-                this.resetButton.y = 20;
-            }
-            
-            this.draw();
-        }
+        // Update dimensions
+        this.cellSize = newCellSize;
+        
+        // Calculate canvas dimensions to fill viewport
+        const canvasWidth = this.gridWidth * this.cellSize;
+        const canvasHeight = (this.gridHeight * this.cellSize) + scoreAndTimerSpace;
+        
+        // Update canvas size
+        this.canvas.width = canvasWidth;
+        this.canvas.height = canvasHeight;
+        
+        // Update container style to fill viewport
+        container.style.width = '100%';
+        container.style.height = '100%';
+        
+        // Update reset button position
+        this.resetButton.x = this.canvas.width - this.resetButton.width - 10;
+        this.resetButton.y = 20;
+        
+        // Always redraw
+        this.draw();
     }
     
     updateTimer(deltaTime) {
@@ -1810,6 +1790,11 @@ class AppleGame {
         const rect = this.canvas.getBoundingClientRect();
         const x = touch.clientX - rect.left;
         const y = touch.clientY - rect.top;
+
+        // Block touch interactions during countdown
+        if (this.isCountingDown) {
+            return;
+        }
 
         // Check if touch is on reset button
         if (
