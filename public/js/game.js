@@ -6,15 +6,17 @@ window.addEventListener('load', () => {
 
 class AppleGame {
     constructor() {
+        // Move these initializations to the top, right after canvas setup
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
         
-        // Initialize arrays and collections first
+        // Initialize collections first
         this.animations = [];
         this.particles = [];
         this.fallingApples = [];
         this.scorePopups = [];
-        this.touchPoints = {};
+        this.touchPoints = new Map();
+        this.activeSelections = new Map(); // Move this up with other collections
         
         // Add confirmation dialog properties
         this.confirmDialog = {
@@ -325,13 +327,10 @@ class AppleGame {
         });
 
         // Add touch event listeners
-        this.canvas.addEventListener('touchstart', this.handleTouchStart, false);
-        this.canvas.addEventListener('touchmove', this.handleTouchMove, false);
-        this.canvas.addEventListener('touchend', this.handleTouchEnd, false);
-        this.canvas.addEventListener('touchcancel', this.handleTouchEnd, false);
-
-        // Touch event handlers
-        this.touchPoints = {};
+        this.canvas.addEventListener('touchstart', this.handleTouchStart, { passive: false });
+        this.canvas.addEventListener('touchmove', this.handleTouchMove, { passive: false });
+        this.canvas.addEventListener('touchend', this.handleTouchEnd);
+        this.canvas.addEventListener('touchcancel', this.handleTouchEnd);
 
         // Add timer animation properties
         this.lastTimerUpdate = 0;
@@ -377,38 +376,26 @@ class AppleGame {
     }
     
     bindTouchEvents() {
-        this.canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            const touch = e.touches[0];
-            this.handleMouseDown(touch);
-        });
-        
-        this.canvas.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            const touch = e.touches[0];
-            this.handleMouseMove(touch);
-        });
-        
-        this.canvas.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            this.handleMouseUp(e);
-        });
-        
-        this.canvas.addEventListener('touchcancel', (e) => {
-            e.preventDefault();
-            this.handleMouseUp(e);
-        });
+        // Bind the handlers to preserve 'this' context
+        this.handleTouchStart = this.handleTouchStart.bind(this);
+        this.handleTouchMove = this.handleTouchMove.bind(this);
+        this.handleTouchEnd = this.handleTouchEnd.bind(this);
+
+        this.canvas.addEventListener('touchstart', this.handleTouchStart, { passive: false });
+        this.canvas.addEventListener('touchmove', this.handleTouchMove, { passive: false });
+        this.canvas.addEventListener('touchend', this.handleTouchEnd);
+        this.canvas.addEventListener('touchcancel', this.handleTouchEnd);
     }
     
     getMousePos(e) {
         const rect = this.canvas.getBoundingClientRect();
-        const scoreMargin = 40; // Same margin as used in draw
+        const scoreMargin = 40;
         
-        // Get the touch/mouse coordinates
+        // Get the coordinates
         let clientX, clientY;
         if (e.touches) {
-            clientX = e.touches[0].clientX;
-            clientY = e.touches[0].clientY;
+            clientX = e.clientX;
+            clientY = e.clientY;
         } else {
             clientX = e.clientX;
             clientY = e.clientY;
@@ -420,13 +407,103 @@ class AppleGame {
         
         // Get position within the canvas and adjust for score margin
         const x = (clientX - rect.left) * scaleX;
-        const y = ((clientY - rect.top) * scaleY) - scoreMargin; // Subtract score margin
+        const y = ((clientY - rect.top) * scaleY) - scoreMargin;
         
-        // Convert to grid coordinates and ensure within grid bounds
+        // Convert to grid coordinates
         const gridX = Math.max(0, Math.min(this.gridWidth - 1, Math.floor(x / this.cellSize)));
         const gridY = Math.max(0, Math.min(this.gridHeight - 1, Math.floor(y / this.cellSize)));
         
         return { x: gridX, y: gridY };
+    }
+    
+    handleTouchStart(e) {
+        e.preventDefault();
+        
+        if (this.isCountingDown) return;
+
+        // Handle each new touch
+        Array.from(e.changedTouches).forEach(touch => {
+            const rect = this.canvas.getBoundingClientRect();
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+
+            // Check for UI interactions first
+            if (this.handleUITouchInteraction(x, y)) {
+                return;
+            }
+
+            // Start a new selection for this touch
+            const pos = this.getMousePos(touch);
+            this.activeSelections.set(touch.identifier, {
+                start: pos,
+                end: { ...pos },
+                sum: 0,
+                selectedCells: new Set()
+            });
+            
+            // Store touch point
+            this.touchPoints.set(touch.identifier, { x, y });
+            
+            this.audio.play('select');
+            this.updateAllSelections();
+            this.draw();
+        });
+    }
+    
+    handleTouchMove(e) {
+        e.preventDefault();
+        
+        // Update each changed touch
+        Array.from(e.changedTouches).forEach(touch => {
+            const selection = this.activeSelections.get(touch.identifier);
+            if (selection) {
+                selection.end = this.getMousePos(touch);
+                this.updateAllSelections();
+                this.draw();
+            }
+        });
+    }
+    
+    handleTouchEnd(e) {
+        e.preventDefault();
+        
+        // Process each ended touch
+        Array.from(e.changedTouches).forEach(touch => {
+            const selection = this.activeSelections.get(touch.identifier);
+            if (selection) {
+                // Process the selection if it sums to 10
+                if (selection.sum === 10) {
+                    this.audio.play('match');
+                    let selectedCount = 0;
+                    
+                    // Process selected cells
+                    selection.selectedCells.forEach(cellKey => {
+                        const [x, y] = cellKey.split(',').map(Number);
+                        if (this.grid[y][x].selected) {
+                            selectedCount++;
+                            this.startDestroyAnimation(x, y, this.grid[y][x].value);
+                            this.grid[y][x].value = null;
+                        }
+                    });
+                    
+                    this.updateScore(selectedCount);
+                    
+                    if (!this.hasValidMoves()) {
+                        this.regenerateGrid();
+                    }
+                } else if (selection.sum > 0) {
+                    this.audio.play('wrong');
+                }
+                
+                // Remove this selection
+                this.activeSelections.delete(touch.identifier);
+                this.touchPoints.delete(touch.identifier);
+            }
+        });
+        
+        // Update remaining selections
+        this.updateAllSelections();
+        this.draw();
     }
     
     handleMouseDown(e) {
@@ -765,7 +842,24 @@ class AppleGame {
             this.ctx.globalAlpha = 1; // Reset opacity
         });
         
-        // Draw selection rectangle if currently drawing
+        // Draw selection rectangles for all active selections
+        if (this.activeSelections) { // Add safety check
+            this.activeSelections.forEach(selection => {
+                const startX = Math.min(selection.start.x, selection.end.x) * this.cellSize;
+                const endX = (Math.max(selection.start.x, selection.end.x) + 1) * this.cellSize;
+                const startY = Math.min(selection.start.y, selection.end.y) * this.cellSize;
+                const endY = (Math.max(selection.start.y, selection.end.y) + 1) * this.cellSize;
+                
+                this.ctx.fillStyle = selection.sum === 10 ? 'rgba(255, 0, 0, 0.3)' : 'rgba(255, 255, 0, 0.3)';
+                this.ctx.fillRect(startX, startY, endX - startX, endY - startY);
+                
+                this.ctx.strokeStyle = selection.sum === 10 ? 'rgba(255, 0, 0, 0.8)' : 'rgba(255, 255, 0, 0.8)';
+                this.ctx.lineWidth = 2;
+                this.ctx.strokeRect(startX, startY, endX - startX, endY - startY);
+            });
+        }
+
+        // Also draw the single mouse selection if active
         if (this.isDrawing) {
             const startX = Math.min(this.selectionStart.x, this.selectionEnd.x) * this.cellSize;
             const endX = (Math.max(this.selectionStart.x, this.selectionEnd.x) + 1) * this.cellSize;
@@ -1786,77 +1880,92 @@ class AppleGame {
     // Touch event handlers
     handleTouchStart(e) {
         e.preventDefault();
-        const touch = e.touches[0];
-        const rect = this.canvas.getBoundingClientRect();
-        const x = touch.clientX - rect.left;
-        const y = touch.clientY - rect.top;
+        
+        if (this.isCountingDown) return;
 
-        // Block touch interactions during countdown
-        if (this.isCountingDown) {
-            return;
-        }
+        // Handle each new touch
+        Array.from(e.changedTouches).forEach(touch => {
+            const rect = this.canvas.getBoundingClientRect();
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
 
-        // Check if touch is on reset button
-        if (
-            x >= this.resetButton.x &&
-            x <= this.resetButton.x + this.resetButton.width &&
-            y >= this.resetButton.y &&
-            y <= this.resetButton.y + this.resetButton.height
-        ) {
-            if (confirm('Are you sure you want to reset the current game? Your progress will be lost.')) {
-                this.resetCurrentGame();
+            // Check for UI interactions first
+            if (this.handleUITouchInteraction(x, y)) {
+                return;
             }
-            return; // Don't start selection if touching button
-        }
 
-        // Store touch data using identifier as key
-        this.touchPoints[touch.identifier] = {
-            x: x,
-            y: y,
-            startX: x,
-            startY: y
-        };
+            // Start a new selection for this touch
+            const pos = this.getMousePos(touch);
+            this.activeSelections.set(touch.identifier, {
+                start: pos,
+                end: { ...pos },
+                sum: 0,
+                selectedCells: new Set()
+            });
+            
+            // Store touch point
+            this.touchPoints.set(touch.identifier, { x, y });
+            
+            this.audio.play('select');
+            this.updateAllSelections();
+            this.draw();
+        });
     }
 
     handleTouchMove(e) {
         e.preventDefault();
-        const touches = e.changedTouches;
         
-        for (let i = 0; i < touches.length; i++) {
-            const touch = touches[i];
-            if (this.touchPoints[touch.identifier]) {
-                const rect = this.canvas.getBoundingClientRect();
-                this.touchPoints[touch.identifier].x = touch.clientX - rect.left;
-                this.touchPoints[touch.identifier].y = touch.clientY - rect.top;
+        // Update each changed touch
+        Array.from(e.changedTouches).forEach(touch => {
+            const selection = this.activeSelections.get(touch.identifier);
+            if (selection) {
+                selection.end = this.getMousePos(touch);
+                this.updateAllSelections();
+                this.draw();
             }
-        }
+        });
     }
 
     handleTouchEnd(e) {
         e.preventDefault();
-        const touches = e.changedTouches;
         
-        for (let i = 0; i < touches.length; i++) {
-            const touch = touches[i];
-            // Clean up ended touch points
-            delete this.touchPoints[touch.identifier];
-        }
-    }
-
-    // In your game update function, you can now handle multiple touch points
-    update() {
-        // Handle all active touch points
-        Object.values(this.touchPoints).forEach(touch => {
-            // Handle each touch point here
-            // Example: check collisions, trigger actions, etc.
-            this.handleInteraction(touch.x, touch.y);
+        // Process each ended touch
+        Array.from(e.changedTouches).forEach(touch => {
+            const selection = this.activeSelections.get(touch.identifier);
+            if (selection) {
+                // Process the selection if it sums to 10
+                if (selection.sum === 10) {
+                    this.audio.play('match');
+                    let selectedCount = 0;
+                    
+                    // Process selected cells
+                    selection.selectedCells.forEach(cellKey => {
+                        const [x, y] = cellKey.split(',').map(Number);
+                        if (this.grid[y][x].selected) {
+                            selectedCount++;
+                            this.startDestroyAnimation(x, y, this.grid[y][x].value);
+                            this.grid[y][x].value = null;
+                        }
+                    });
+                    
+                    this.updateScore(selectedCount);
+                    
+                    if (!this.hasValidMoves()) {
+                        this.regenerateGrid();
+                    }
+                } else if (selection.sum > 0) {
+                    this.audio.play('wrong');
+                }
+                
+                // Remove this selection
+                this.activeSelections.delete(touch.identifier);
+                this.touchPoints.delete(touch.identifier);
+            }
         });
-    }
-
-    // Helper function to handle interactions
-    handleInteraction(x, y) {
-        // Add your touch interaction logic here
-        // Example: checking if touch coordinates intersect with game objects
+        
+        // Update remaining selections
+        this.updateAllSelections();
+        this.draw();
     }
 
     // Update the resetCurrentGame method
@@ -2067,6 +2176,73 @@ class AppleGame {
         this.confirmDialog.message = message;
         this.confirmDialog.onConfirm = onConfirm;
         this.draw();
+    }
+
+    // Add new helper methods
+    updateAllSelections() {
+        // Clear all selections first
+        this.clearSelection();
+        
+        // Process each active selection
+        this.activeSelections.forEach(selection => {
+            const startX = Math.min(selection.start.x, selection.end.x);
+            const endX = Math.max(selection.start.x, selection.end.x);
+            const startY = Math.min(selection.start.y, selection.end.y);
+            const endY = Math.max(selection.start.y, selection.end.y);
+            
+            selection.sum = 0;
+            selection.selectedCells.clear();
+            
+            // Mark cells in this selection
+            for (let y = startY; y <= endY; y++) {
+                for (let x = startX; x <= endX; x++) {
+                    if (y >= 0 && y < this.gridHeight && x >= 0 && x < this.gridWidth) {
+                        if (this.grid[y][x].value !== null) {
+                            this.grid[y][x].selected = true;
+                            selection.sum += this.grid[y][x].value;
+                            selection.selectedCells.add(`${x},${y}`);
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    handleUITouchInteraction(x, y) {
+        // Handle confirmation dialog
+        if (this.confirmDialog.isVisible) {
+            Object.entries(this.confirmDialog.buttons).forEach(([type, button]) => {
+                if (button.bounds &&
+                    x >= button.bounds.x &&
+                    x <= button.bounds.x + button.bounds.width &&
+                    y >= button.bounds.y &&
+                    y <= button.bounds.y + button.bounds.height
+                ) {
+                    if (type === 'yes' && this.confirmDialog.onConfirm) {
+                        this.confirmDialog.onConfirm();
+                    }
+                    this.confirmDialog.isVisible = false;
+                    this.draw();
+                }
+            });
+            return true;
+        }
+
+        // Handle reset button
+        if (
+            x >= this.resetButton.x &&
+            x <= this.resetButton.x + this.resetButton.width &&
+            y >= this.resetButton.y &&
+            y <= this.resetButton.y + this.resetButton.height
+        ) {
+            this.showConfirmDialog(
+                'Reset current game?',
+                () => this.resetCurrentGame()
+            );
+            return true;
+        }
+
+        return false;
     }
 }
 
