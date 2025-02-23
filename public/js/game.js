@@ -314,12 +314,18 @@ class AppleGame {
         // Touch event handlers
         this.touchPoints = {};
 
-        // Add reset button handler
-        document.getElementById('resetButton').addEventListener('click', () => {
-            if (confirm('Are you sure you want to reset the current game? Your progress will be lost.')) {
-                this.resetCurrentGame();
-            }
-        });
+        // Add reset button properties
+        this.resetButton = {
+            x: 0, // Will be set in handleResize
+            y: 10,
+            width: 80,
+            height: 30,
+            text: '↺ Reset',
+            isHovered: false
+        };
+
+        // Add mouse move handler for button hover effect
+        this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
 
         // Add timer animation properties
         this.lastTimerUpdate = 0;
@@ -328,6 +334,25 @@ class AppleGame {
         this.timerAnimationFrame = null;
 
         this.scorePopups = [];
+
+        // Add confirmation dialog properties
+        this.confirmDialog = {
+            isVisible: false,
+            message: '',
+            onConfirm: null,
+            width: 300,
+            height: 150,
+            buttons: {
+                yes: {
+                    text: 'Yes',
+                    isHovered: false
+                },
+                no: {
+                    text: 'No',
+                    isHovered: false
+                }
+            }
+        };
     }
     
     createGrid() {
@@ -420,6 +445,42 @@ class AppleGame {
     }
     
     handleMouseDown(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        if (this.confirmDialog.isVisible) {
+            Object.entries(this.confirmDialog.buttons).forEach(([type, button]) => {
+                if (button.bounds &&
+                    x >= button.bounds.x &&
+                    x <= button.bounds.x + button.bounds.width &&
+                    y >= button.bounds.y &&
+                    y <= button.bounds.y + button.bounds.height
+                ) {
+                    if (type === 'yes' && this.confirmDialog.onConfirm) {
+                        this.confirmDialog.onConfirm();
+                    }
+                    this.confirmDialog.isVisible = false;
+                    this.draw();
+                }
+            });
+            return;
+        }
+
+        // Check if click is on reset button
+        if (
+            x >= this.resetButton.x &&
+            x <= this.resetButton.x + this.resetButton.width &&
+            y >= this.resetButton.y &&
+            y <= this.resetButton.y + this.resetButton.height
+        ) {
+            this.showConfirmDialog(
+                'Reset current game?',
+                () => this.resetCurrentGame()
+            );
+            return;
+        }
+
         this.isDrawing = true;
         const pos = this.getMousePos(e);
         this.selectionStart = pos;
@@ -431,6 +492,37 @@ class AppleGame {
     }
     
     handleMouseMove(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        if (this.confirmDialog.isVisible) {
+            // Check hover state for dialog buttons
+            Object.values(this.confirmDialog.buttons).forEach(button => {
+                if (button.bounds) {
+                    const wasHovered = button.isHovered;
+                    button.isHovered = (
+                        x >= button.bounds.x &&
+                        x <= button.bounds.x + button.bounds.width &&
+                        y >= button.bounds.y &&
+                        y <= button.bounds.y + button.bounds.height
+                    );
+                    if (wasHovered !== button.isHovered) {
+                        this.draw(); // Redraw if hover state changed
+                    }
+                }
+            });
+            return;
+        }
+
+        // Check if mouse is over reset button
+        this.resetButton.isHovered = (
+            x >= this.resetButton.x &&
+            x <= this.resetButton.x + this.resetButton.width &&
+            y >= this.resetButton.y &&
+            y <= this.resetButton.y + this.resetButton.height
+        );
+
         if (!this.isDrawing) return;
         
         this.selectionEnd = this.getMousePos(e);
@@ -766,6 +858,47 @@ class AppleGame {
                 return true;
             });
         }
+
+        // If countdown is active, draw the semi-transparent overlay and countdown
+        if (this.isCountingDown) {
+            // Draw semi-transparent overlay
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'; // Changed from 0.7 to 0.5 for more transparency
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            
+            // Draw countdown text
+            this.ctx.save();
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            
+            // Make the countdown text larger and bolder
+            this.ctx.font = 'bold 120px Arial';
+            
+            // Draw text shadow for better visibility
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            this.ctx.fillText(
+                this.countdownValue === 0 ? 'GO!' : this.countdownValue,
+                this.canvas.width / 2 + 4,
+                this.canvas.height / 2 + 4
+            );
+            
+            // Draw main text with a white stroke for better visibility
+            this.ctx.fillStyle = 'white';
+            this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+            this.ctx.lineWidth = 3;
+            const text = this.countdownValue === 0 ? 'GO!' : this.countdownValue;
+            this.ctx.strokeText(text, this.canvas.width / 2, this.canvas.height / 2);
+            this.ctx.fillText(text, this.canvas.width / 2, this.canvas.height / 2);
+            
+            this.ctx.restore();
+        }
+
+        // Draw reset button only if not counting down
+        if (!this.isCountingDown) {
+            this.drawResetButton();
+        }
+
+        // Draw confirmation dialog on top if visible
+        this.drawConfirmDialog();
     }
     
     drawApple(x, y, value, selected, hint, scale = 1, alpha = 1) {
@@ -907,32 +1040,26 @@ class AppleGame {
         this.currentTimeLeft = this.initialTime;
         this.targetTimeLeft = this.initialTime;
         
-        // Create and show countdown overlay
-        const countdownOverlay = document.createElement('div');
-        countdownOverlay.className = 'countdown-overlay';
-        const countdownText = document.createElement('div');
-        countdownText.className = 'countdown-text';
-        countdownOverlay.appendChild(countdownText);
-        document.getElementById('game-page').appendChild(countdownOverlay);
-        
         // Start countdown
-        let count = 3;
-        countdownText.textContent = count;
+        this.isCountingDown = true;
+        this.countdownValue = 3;
         this.audio.play('countdown');
         
         const countdownInterval = setInterval(() => {
-            count--;
-            if (count > 0) {
-                countdownText.textContent = count;
-                this.audio.play('countdown');
-            } else if (count === 0) {
-                countdownText.textContent = 'GO!';
-                this.audio.play('match');
-                setTimeout(() => {
-                    countdownOverlay.remove();
-                    clearInterval(countdownInterval);
-                    this.startGameTimer();
-                }, 500);
+            this.countdownValue--;
+            if (this.countdownValue >= 0) {
+                if (this.countdownValue > 0) {
+                    this.audio.play('countdown');
+                } else {
+                    this.audio.play('match');
+                }
+                this.draw();
+            }
+            if (this.countdownValue < 0) {
+                clearInterval(countdownInterval);
+                this.isCountingDown = false;
+                this.startGameTimer();
+                this.draw();
             }
         }, 1000);
         
@@ -1521,7 +1648,7 @@ class AppleGame {
             
             // Update reset button position
             if (this.resetButton) {
-                this.resetButton.x = this.canvas.width - 40;
+                this.resetButton.x = this.canvas.width - this.resetButton.width - 10;
                 this.resetButton.y = 20;
             }
             
@@ -1677,30 +1804,38 @@ class AppleGame {
     }
 
     // Touch event handlers
-    handleTouchStart(event) {
-        event.preventDefault();
-        const touches = event.changedTouches;
-        
-        for (let i = 0; i < touches.length; i++) {
-            const touch = touches[i];
-            // Convert touch coordinates to canvas coordinates
-            const rect = this.canvas.getBoundingClientRect();
-            const x = touch.clientX - rect.left;
-            const y = touch.clientY - rect.top;
-            
-            // Store touch data using identifier as key
-            this.touchPoints[touch.identifier] = {
-                x: x,
-                y: y,
-                startX: x,
-                startY: y
-            };
+    handleTouchStart(e) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const rect = this.canvas.getBoundingClientRect();
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+
+        // Check if touch is on reset button
+        if (
+            x >= this.resetButton.x &&
+            x <= this.resetButton.x + this.resetButton.width &&
+            y >= this.resetButton.y &&
+            y <= this.resetButton.y + this.resetButton.height
+        ) {
+            if (confirm('Are you sure you want to reset the current game? Your progress will be lost.')) {
+                this.resetCurrentGame();
+            }
+            return; // Don't start selection if touching button
         }
+
+        // Store touch data using identifier as key
+        this.touchPoints[touch.identifier] = {
+            x: x,
+            y: y,
+            startX: x,
+            startY: y
+        };
     }
 
-    handleTouchMove(event) {
-        event.preventDefault();
-        const touches = event.changedTouches;
+    handleTouchMove(e) {
+        e.preventDefault();
+        const touches = e.changedTouches;
         
         for (let i = 0; i < touches.length; i++) {
             const touch = touches[i];
@@ -1712,9 +1847,9 @@ class AppleGame {
         }
     }
 
-    handleTouchEnd(event) {
-        event.preventDefault();
-        const touches = event.changedTouches;
+    handleTouchEnd(e) {
+        e.preventDefault();
+        const touches = e.changedTouches;
         
         for (let i = 0; i < touches.length; i++) {
             const touch = touches[i];
@@ -1760,32 +1895,26 @@ class AppleGame {
         this.timeLeft = this.initialTime;
         this.msLeft = this.timeLeft * 1000;
         
-        // Create and show countdown overlay
-        const countdownOverlay = document.createElement('div');
-        countdownOverlay.className = 'countdown-overlay';
-        const countdownText = document.createElement('div');
-        countdownText.className = 'countdown-text';
-        countdownOverlay.appendChild(countdownText);
-        document.getElementById('game-page').appendChild(countdownOverlay);
-        
         // Start countdown
-        let count = 3;
-        countdownText.textContent = count;
+        this.isCountingDown = true;
+        this.countdownValue = 3;
         this.audio.play('countdown');
         
         const countdownInterval = setInterval(() => {
-            count--;
-            if (count > 0) {
-                countdownText.textContent = count;
-                this.audio.play('countdown');
-            } else if (count === 0) {
-                countdownText.textContent = 'GO!';
-                this.audio.play('match');
-                setTimeout(() => {
-                    countdownOverlay.remove();
-                    clearInterval(countdownInterval);
-                    this.startGameTimer();
-                }, 500);
+            this.countdownValue--;
+            if (this.countdownValue >= 0) {
+                if (this.countdownValue > 0) {
+                    this.audio.play('countdown');
+                } else {
+                    this.audio.play('match');
+                }
+                this.draw();
+            }
+            if (this.countdownValue < 0) {
+                clearInterval(countdownInterval);
+                this.isCountingDown = false;
+                this.startGameTimer();
+                this.draw();
             }
         }, 1000);
         
@@ -1808,6 +1937,151 @@ class AppleGame {
         if (x === 1) return 1;
         
         return Math.pow(2, -10 * x) * Math.sin((x * 10 - 0.75) * c4) + 1;
+    }
+
+    // Add new method to draw the reset button
+    drawResetButton() {
+        // Position button in top right corner
+        this.resetButton.x = this.canvas.width - this.resetButton.width - 10;
+
+        this.ctx.save();
+        
+        // Draw button background
+        this.ctx.beginPath();
+        this.ctx.roundRect(
+            this.resetButton.x,
+            this.resetButton.y,
+            this.resetButton.width,
+            this.resetButton.height,
+            5 // border radius
+        );
+
+        // Change color based on hover state
+        if (this.resetButton.isHovered) {
+            this.ctx.fillStyle = '#e65100'; // darker orange for hover
+        } else {
+            this.ctx.fillStyle = '#ff9800'; // normal orange
+        }
+        this.ctx.fill();
+
+        // Draw button text
+        this.ctx.font = 'bold 16px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        
+        // Draw text shadow
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        this.ctx.fillText(
+            this.resetButton.text,
+            this.resetButton.x + this.resetButton.width/2 + 1,
+            this.resetButton.y + this.resetButton.height/2 + 1
+        );
+
+        // Draw main text
+        this.ctx.fillStyle = 'white';
+        this.ctx.fillText(
+            this.resetButton.text,
+            this.resetButton.x + this.resetButton.width/2,
+            this.resetButton.y + this.resetButton.height/2
+        );
+
+        this.ctx.restore();
+    }
+
+    // Add new method to draw confirmation dialog
+    drawConfirmDialog() {
+        if (!this.confirmDialog.isVisible) return;
+
+        // Save context
+        this.ctx.save();
+
+        // Draw semi-transparent overlay
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Calculate dialog position
+        const x = (this.canvas.width - this.confirmDialog.width) / 2;
+        const y = (this.canvas.height - this.confirmDialog.height) / 2;
+
+        // Draw dialog background
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; // Darker background
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'; // Light border
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.roundRect(x, y, this.confirmDialog.width, this.confirmDialog.height, 10);
+        this.ctx.fill();
+        this.ctx.stroke();
+
+        // Draw message in white
+        this.ctx.font = 'bold 18px Arial';
+        this.ctx.fillStyle = 'white'; // Changed to white
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText(
+            this.confirmDialog.message,
+            x + this.confirmDialog.width / 2,
+            y + 50
+        );
+
+        // Draw buttons
+        const buttonWidth = 100;
+        const buttonHeight = 40;
+        const buttonGap = 20;
+        const buttonsY = y + this.confirmDialog.height - 60;
+
+        // Yes button
+        const yesX = x + (this.confirmDialog.width - buttonWidth * 2 - buttonGap) / 2;
+        this.drawDialogButton(
+            'yes',
+            yesX,
+            buttonsY,
+            buttonWidth,
+            buttonHeight,
+            '#4CAF50',
+            '#45a049'
+        );
+
+        // No button
+        const noX = yesX + buttonWidth + buttonGap;
+        this.drawDialogButton(
+            'no',
+            noX,
+            buttonsY,
+            buttonWidth,
+            buttonHeight,
+            '#f44336',
+            '#d32f2f'
+        );
+
+        this.ctx.restore();
+    }
+
+    drawDialogButton(type, x, y, width, height, normalColor, hoverColor) {
+        const button = this.confirmDialog.buttons[type];
+        
+        // Draw button background
+        this.ctx.beginPath();
+        this.ctx.roundRect(x, y, width, height, 5);
+        this.ctx.fillStyle = button.isHovered ? hoverColor : normalColor;
+        this.ctx.fill();
+
+        // Draw button text
+        this.ctx.font = 'bold 16px Arial';
+        this.ctx.fillStyle = 'white';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText(button.text, x + width / 2, y + height / 2);
+
+        // Store button bounds for hit detection
+        button.bounds = { x, y, width, height };
+    }
+
+    // Add method to show confirmation dialog
+    showConfirmDialog(message, onConfirm) {
+        this.confirmDialog.isVisible = true;
+        this.confirmDialog.message = message;
+        this.confirmDialog.onConfirm = onConfirm;
+        this.draw();
     }
 }
 
