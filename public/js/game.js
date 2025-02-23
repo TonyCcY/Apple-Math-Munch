@@ -661,10 +661,9 @@ class AppleGame {
                 const alpha = 1 - progress;
                 this.drawApple(anim.x, anim.y, anim.value, false, false, 1, alpha);
             } else if (anim.type === 'fade-in') {
-                // Sync the alpha with the scale animation
-                const scale = this.easeOutBack(progress);
-                const alpha = progress;
-                // Start invisible and small, then scale up with bounce
+                // Use elastic easing for scale
+                const scale = this.easeElastic(progress);
+                const alpha = Math.min(1, progress * 2); // Fade in faster than the bounce
                 this.drawApple(anim.x, anim.y, anim.value, false, false, scale, alpha);
             }
         });
@@ -1180,17 +1179,13 @@ class AppleGame {
             return;
         }
 
-        // Store old grid values
+        // Store old grid values but don't clear the grid yet
         const oldGrid = [];
         for (let y = 0; y < this.gridHeight; y++) {
             oldGrid[y] = [];
             for (let x = 0; x < this.gridWidth; x++) {
                 oldGrid[y][x] = this.grid[y][x].value;
-                this.grid[y][x] = {
-                    value: null,
-                    selected: false,
-                    hint: false
-                };
+                // Don't clear the grid values yet
             }
         }
 
@@ -1211,27 +1206,7 @@ class AppleGame {
             Math.pow(Math.max(centerY, this.gridHeight - centerY), 2)
         );
 
-        // Start fade out animations with ripple effect
-        for (let y = 0; y < this.gridHeight; y++) {
-            for (let x = 0; x < this.gridWidth; x++) {
-                if (oldGrid[y][x] !== null) {
-                    // Calculate distance from center for ripple effect
-                    const distance = Math.sqrt(
-                        Math.pow(x - centerX, 2) + 
-                        Math.pow(y - centerY, 2)
-                    );
-                    
-                    // Normalize distance to get delay (0-200ms)
-                    const delay = (distance / maxDistance) * 200;
-                    
-                    setTimeout(() => {
-                        this.startFadeOutAnimation(x, y, oldGrid[y][x]);
-                    }, delay);
-                }
-            }
-        }
-
-        // Generate new grid values
+        // Generate new grid values but don't set them yet
         const generateValidGrid = () => {
             const newGrid = [];
             for (let y = 0; y < this.gridHeight; y++) {
@@ -1247,30 +1222,45 @@ class AppleGame {
             return this.findCombination(newGrid) !== null ? newGrid : generateValidGrid();
         };
 
-        // After fade out, start fade in animations
-        setTimeout(() => {
-            const newGrid = generateValidGrid();
-            
-            // Start fade in animations with ripple effect
-            for (let y = 0; y < this.gridHeight; y++) {
-                for (let x = 0; x < this.gridWidth; x++) {
-                    this.grid[y][x] = newGrid[y][x];
-                    
-                    // Calculate distance from center for ripple effect
+        const newGrid = generateValidGrid();
+
+        // Start fade out animations with ripple effect
+        for (let y = 0; y < this.gridHeight; y++) {
+            for (let x = 0; x < this.gridWidth; x++) {
+                if (oldGrid[y][x] !== null) {
                     const distance = Math.sqrt(
                         Math.pow(x - centerX, 2) + 
                         Math.pow(y - centerY, 2)
                     );
+                    const delay = (distance / maxDistance) * 200;
                     
-                    // Normalize distance to get delay (0-300ms)
+                    // Set grid value to null only when starting the fade-out animation
+                    setTimeout(() => {
+                        const value = this.grid[y][x].value; // Store the current value
+                        this.grid[y][x].value = null; // Clear the grid value
+                        this.startFadeOutAnimation(x, y, value); // Use the stored value
+                    }, delay);
+                }
+            }
+        }
+
+        // After fade out, start fade in animations
+        setTimeout(() => {
+            for (let y = 0; y < this.gridHeight; y++) {
+                for (let x = 0; x < this.gridWidth; x++) {
+                    const distance = Math.sqrt(
+                        Math.pow(x - centerX, 2) + 
+                        Math.pow(y - centerY, 2)
+                    );
                     const delay = (distance / maxDistance) * 300;
                     
                     setTimeout(() => {
+                        this.grid[y][x].value = newGrid[y][x].value;
                         this.startFadeInAnimation(x, y, newGrid[y][x].value);
                     }, delay);
                 }
             }
-        }, 500); // Wait for fade out to complete
+        }, 500);
     }
     
     startFadeOutAnimation(x, y, value) {
@@ -1292,13 +1282,20 @@ class AppleGame {
     
     startFadeInAnimation(x, y, value) {
         const startTime = performance.now();
-        const duration = 800; // Increased duration for smoother bounce
+        const duration = 1200; // Increased duration for elastic effect
+        
+        // Start with null value
+        this.grid[y][x].value = null;
         
         this.animations.push({
             x, y, value,
             startTime,
             duration,
-            type: 'fade-in'
+            type: 'fade-in',
+            onComplete: () => {
+                // Set the actual value when animation completes
+                this.grid[y][x].value = value;
+            }
         });
         
         if (!this.isAnimating) {
@@ -1790,6 +1787,16 @@ class AppleGame {
         const c1 = 3; // Increased bounce amount
         const c3 = c1 + 1;
         return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+    }
+
+    // Add this new easing function
+    easeElastic(x) {
+        const c4 = (2 * Math.PI) / 3;
+        
+        if (x === 0) return 0;
+        if (x === 1) return 1;
+        
+        return Math.pow(2, -10 * x) * Math.sin((x * 10 - 0.75) * c4) + 1;
     }
 }
 
